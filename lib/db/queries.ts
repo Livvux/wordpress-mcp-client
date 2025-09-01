@@ -30,7 +30,6 @@ import {
   stream,
   aiIntegration,
   wordpressConnection,
-  subscription,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -122,58 +121,7 @@ export async function createGuestUser() {
 }
 
 // Subscriptions
-export async function getSubscriptionByUserId(userId: string) {
-  const _db = ensureDb();
-  try {
-    const [sub] = await _db.select().from(subscription).where(eq(subscription.userId, userId)).limit(1);
-    return sub || null;
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to fetch subscription');
-  }
-}
-
-export async function upsertSubscription(params: {
-  userId: string;
-  stripeCustomerId?: string | null;
-  stripeSubscriptionId?: string | null;
-  status?: string;
-  currentPeriodEnd?: Date | null;
-}) {
-  const _db = ensureDb();
-  const { userId, stripeCustomerId, stripeSubscriptionId, status, currentPeriodEnd } = params;
-  try {
-    const [existing] = await _db.select().from(subscription).where(eq(subscription.userId, userId)).limit(1);
-    if (existing) {
-      const [updated] = await _db
-        .update(subscription)
-        .set({
-          stripeCustomerId: stripeCustomerId ?? existing.stripeCustomerId,
-          stripeSubscriptionId: stripeSubscriptionId ?? existing.stripeSubscriptionId,
-          status: status ?? existing.status,
-          currentPeriodEnd: currentPeriodEnd ?? existing.currentPeriodEnd,
-          updatedAt: new Date(),
-        })
-        .where(eq(subscription.userId, userId))
-        .returning();
-      return updated;
-    }
-    const [inserted] = await _db
-      .insert(subscription)
-      .values({
-        userId,
-        stripeCustomerId: stripeCustomerId ?? null,
-        stripeSubscriptionId: stripeSubscriptionId ?? null,
-        status: status ?? 'active',
-        currentPeriodEnd: currentPeriodEnd ?? null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return inserted;
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to upsert subscription');
-  }
-}
+// Subscription helpers are not included in OSS lite
 
 export async function saveChat({
   id,
