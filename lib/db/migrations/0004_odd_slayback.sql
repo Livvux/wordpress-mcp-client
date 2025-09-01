@@ -1,0 +1,1 @@
+ALTER TABLE "Document" ADD COLUMN IF NOT EXISTS "text" varchar DEFAULT 'text' NOT NULL;
