@@ -12,9 +12,9 @@ export async function auth(): Promise<SimpleAuth | null> {
   if (!session) {
     return null;
   }
-  
+
   const user = await getOrCreateGuestUser(session.userId);
-  
+
   return {
     user,
     session,

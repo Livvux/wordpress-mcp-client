@@ -259,7 +259,9 @@ export const task = pgTable('Task', {
     .references(() => user.id),
   kind: varchar('kind', { length: 64 }).notNull(),
   params: json('params').notNull(),
-  status: varchar('status', { enum: ['queued', 'running', 'failed', 'completed'] })
+  status: varchar('status', {
+    enum: ['queued', 'running', 'failed', 'completed'],
+  })
     .notNull()
     .default('queued'),
   attempts: integer('attempts').notNull().default(0),
@@ -299,3 +301,169 @@ export const subscription = pgTable(
 );
 
 export type Subscription = InferSelectModel<typeof subscription>;
+
+// Multitenancy: Organizations, Members, Sites, Scopes, Tokens, Approvals, Jobs
+export const organization = pgTable('Organization', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  name: varchar('name', { length: 128 }).notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export type Organization = InferSelectModel<typeof organization>;
+
+export const organizationMember = pgTable(
+  'OrganizationMember',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    orgId: uuid('orgId')
+      .notNull()
+      .references(() => organization.id),
+    userId: uuid('userId')
+      .notNull()
+      .references(() => user.id),
+    // owner | admin | editor | viewer
+    role: varchar('role', { length: 24 }).notNull().default('viewer'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      orgUserUnique: uniqueIndex('OrganizationMember_org_user_unique').on(
+        table.orgId,
+        table.userId,
+      ),
+    };
+  },
+);
+
+export type OrganizationMember = InferSelectModel<typeof organizationMember>;
+
+export const site = pgTable(
+  'Site',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    orgId: uuid('orgId')
+      .notNull()
+      .references(() => organization.id),
+    name: varchar('name', { length: 128 }).notNull(),
+    baseUrl: text('baseUrl').notNull(),
+    status: varchar('status', { enum: ['active', 'inactive', 'pending'] })
+      .notNull()
+      .default('active'),
+    plan: varchar('plan', { length: 32 }).notNull().default('free'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      orgUrlUnique: uniqueIndex('Site_org_url_unique').on(
+        table.orgId,
+        table.baseUrl,
+      ),
+    };
+  },
+);
+
+export type Site = InferSelectModel<typeof site>;
+
+export const siteScope = pgTable(
+  'SiteScope',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    siteId: uuid('siteId')
+      .notNull()
+      .references(() => site.id),
+    scope: varchar('scope', { length: 64 }).notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      siteScopeUnique: uniqueIndex('SiteScope_site_scope_unique').on(
+        table.siteId,
+        table.scope,
+      ),
+    };
+  },
+);
+
+export type SiteScope = InferSelectModel<typeof siteScope>;
+
+export const siteToken = pgTable(
+  'SiteToken',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    siteId: uuid('siteId')
+      .notNull()
+      .references(() => site.id),
+    kid: varchar('kid', { length: 64 }).notNull(),
+    publicKey: text('publicKey').notNull(),
+    expiresAt: timestamp('expiresAt'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      siteKidUnique: uniqueIndex('SiteToken_site_kid_unique').on(
+        table.siteId,
+        table.kid,
+      ),
+    };
+  },
+);
+
+export type SiteToken = InferSelectModel<typeof siteToken>;
+
+export const approval = pgTable(
+  'Approval',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    siteId: uuid('siteId')
+      .notNull()
+      .references(() => site.id),
+    type: varchar('type', { length: 64 }).notNull(),
+    payloadHash: varchar('payloadHash', { length: 128 }).notNull(),
+    status: varchar('status', { enum: ['pending', 'approved', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    approvedBy: uuid('approvedBy').references(() => user.id),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      sitePayloadUnique: uniqueIndex('Approval_site_payload_unique').on(
+        table.siteId,
+        table.payloadHash,
+      ),
+    };
+  },
+);
+
+export type Approval = InferSelectModel<typeof approval>;
+
+export const job = pgTable(
+  'Job',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    siteId: uuid('siteId')
+      .notNull()
+      .references(() => site.id),
+    type: varchar('type', { length: 64 }).notNull(),
+    status: varchar('status', {
+      enum: ['queued', 'running', 'failed', 'completed'],
+    })
+      .notNull()
+      .default('queued'),
+    progress: integer('progress').notNull().default(0),
+    meta: json('meta').notNull().default({}),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      siteTypeIdx: uniqueIndex('Job_site_type_id_unique').on(table.id),
+    };
+  },
+);
+
+export type Job = InferSelectModel<typeof job>;

@@ -1,0 +1,10 @@
+{
+  "name": "@wpcursor/wp-connector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./dist/index.js || echo 'TODO: implement MCP server'",
+    "build": "echo 'noop'"
+  }
+}

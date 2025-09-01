@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Sparkles, ArrowRight } from 'lucide-react';
@@ -22,23 +28,23 @@ interface OnboardingCompleteProps {
 const ConfettiParticle = ({ delay }: { delay: number }) => (
   <motion.div
     className="absolute w-2 h-2 bg-primary rounded-full"
-    initial={{ 
-      opacity: 0, 
+    initial={{
+      opacity: 0,
       scale: 0,
       x: 0,
-      y: 0
+      y: 0,
     }}
-    animate={{ 
+    animate={{
       opacity: [0, 1, 0],
       scale: [0, 1, 0],
       x: Math.random() * 400 - 200,
       y: Math.random() * 300 - 150,
-      rotate: Math.random() * 360
+      rotate: Math.random() * 360,
     }}
     transition={{
       duration: 2,
       delay,
-      ease: "easeOut"
+      ease: 'easeOut',
     }}
   />
 );
@@ -46,7 +52,7 @@ const ConfettiParticle = ({ delay }: { delay: number }) => (
 // Party popper effect
 const PartyEffect = () => {
   const [showEffect, setShowEffect] = useState(false);
-  
+
   useEffect(() => {
     setShowEffect(true);
     const timeout = setTimeout(() => setShowEffect(false), 3000);
@@ -54,8 +60,13 @@ const PartyEffect = () => {
   }, []);
 
   const confettiIds = useMemo(
-    () => Array.from({ length: 50 }, () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2))),
-    []
+    () =>
+      Array.from({ length: 50 }, () =>
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2),
+      ),
+    [],
   );
 
   if (!showEffect) return null;
@@ -65,11 +76,11 @@ const PartyEffect = () => {
       {confettiIds.map((id, i) => (
         <ConfettiParticle key={id} delay={i * 0.1} />
       ))}
-      
+
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ duration: 0.5, type: "spring" }}
+        transition={{ duration: 0.5, type: 'spring' }}
         className="text-6xl"
       >
         🎉
@@ -84,8 +95,8 @@ export function OnboardingComplete({
   onBeginChat,
 }: OnboardingCompleteProps) {
   const [showContent, setShowContent] = useState(false);
-  const provider = AI_PROVIDERS.find(p => p.id === aiConfig.provider);
-  const selectedModel = provider?.models.find(m => m.id === aiConfig.model);
+  const provider = AI_PROVIDERS.find((p) => p.id === aiConfig.provider);
+  const selectedModel = provider?.models.find((m) => m.id === aiConfig.model);
 
   useEffect(() => {
     const timeout = setTimeout(() => setShowContent(true), 1000);
@@ -95,7 +106,7 @@ export function OnboardingComplete({
   return (
     <div className="space-y-6">
       <PartyEffect />
-      
+
       <AnimatePresence>
         {showContent && (
           <motion.div
@@ -107,13 +118,13 @@ export function OnboardingComplete({
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.5, type: "spring", bounce: 0.5 }}
+              transition={{ delay: 0.5, type: 'spring', bounce: 0.5 }}
             >
               <div className="mx-auto w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 className="h-8 w-8 text-white" />
               </div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -160,7 +171,10 @@ export function OnboardingComplete({
                     </div>
                   </div>
                 </div>
-                <Badge variant="outline" className="bg-green-100 dark:bg-green-900">
+                <Badge
+                  variant="outline"
+                  className="bg-green-100 dark:bg-green-900"
+                >
                   Connected
                 </Badge>
               </div>
@@ -177,7 +191,10 @@ export function OnboardingComplete({
                     </div>
                   </div>
                 </div>
-                <Badge variant="outline" className="bg-green-100 dark:bg-green-900">
+                <Badge
+                  variant="outline"
+                  className="bg-green-100 dark:bg-green-900"
+                >
                   Connected
                 </Badge>
               </div>
@@ -192,15 +209,18 @@ export function OnboardingComplete({
                   <div>
                     <div className="font-medium">Access Mode</div>
                     <div className="text-sm text-muted-foreground">
-                      {wordpressConfig.writeMode ? 'Write mode enabled' : 'Read-only mode'}
+                      {wordpressConfig.writeMode
+                        ? 'Write mode enabled'
+                        : 'Read-only mode'}
                     </div>
                   </div>
                 </div>
-                <Badge 
-                  variant="outline" 
-                  className={wordpressConfig.writeMode 
-                    ? "bg-yellow-100 dark:bg-yellow-900" 
-                    : "bg-gray-100 dark:bg-gray-900"
+                <Badge
+                  variant="outline"
+                  className={
+                    wordpressConfig.writeMode
+                      ? 'bg-yellow-100 dark:bg-yellow-900'
+                      : 'bg-gray-100 dark:bg-gray-900'
                   }
                 >
                   {wordpressConfig.writeMode ? 'Write' : 'Read Only'}
@@ -245,7 +265,7 @@ export function OnboardingComplete({
         transition={{ delay: 1.5, duration: 0.5 }}
         className="text-center"
       >
-        <Button 
+        <Button
           size="lg"
           onClick={onBeginChat}
           className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"

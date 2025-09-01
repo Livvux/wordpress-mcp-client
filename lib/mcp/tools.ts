@@ -32,7 +32,11 @@ export async function updateWPPost(params: {
   siteUrl: string;
   jwt?: string;
   id: string;
-  patch: Partial<{ title: string; content: string; status: 'draft' | 'publish' }>;
+  patch: Partial<{
+    title: string;
+    content: string;
+    status: 'draft' | 'publish';
+  }>;
 }) {
   const { siteUrl, jwt, id, patch } = params;
   const res = await fetch(`/api/wp/posts/${id}`, {
@@ -51,4 +55,3 @@ export async function previewContent(content: string) {
   });
   return res.json();
 }
-

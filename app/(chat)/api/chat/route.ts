@@ -45,6 +45,7 @@ import { cookies } from 'next/headers';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { getWordPressConnectionByUserId } from '@/lib/db/queries';
+import { BILLING_ENABLED, FREE_TRIAL_DAYS } from '@/lib/config';
 
 export const maxDuration = 60;
 
@@ -54,21 +55,21 @@ async function getDynamicProvider() {
   // Try to load AI configuration from cookies
   const cookieStore = await cookies();
   const aiConfigCookie = cookieStore.get('ai_config');
-  
+
   console.log('[CHAT ROUTE] Cookie store contents:', {
     aiConfigExists: !!aiConfigCookie,
-    cookieValue: aiConfigCookie?.value ? '[REDACTED]' : 'null'
+    cookieValue: aiConfigCookie?.value ? '[REDACTED]' : 'null',
   });
-  
+
   let aiConfig: AIConfiguration | null = null;
-  
+
   if (aiConfigCookie?.value) {
     try {
       aiConfig = JSON.parse(aiConfigCookie.value);
       console.log('[CHAT ROUTE] Parsed AI config:', {
         provider: aiConfig?.provider,
         model: aiConfig?.model,
-        hasApiKey: !!aiConfig?.apiKey
+        hasApiKey: !!aiConfig?.apiKey,
       });
     } catch (error) {
       console.warn('Failed to parse AI configuration from cookies:', error);
@@ -80,11 +81,15 @@ async function getDynamicProvider() {
     try {
       const authData = await auth();
       if (authData?.user) {
-        const latest = await (await import('@/lib/db/queries')).getLatestAIIntegrationByUserId(
-          authData.user.id,
-        );
+        const latest = await (
+          await import('@/lib/db/queries')
+        ).getLatestAIIntegrationByUserId(authData.user.id);
         if (latest) {
-          aiConfig = { provider: latest.provider as any, apiKey: latest.apiKey, model: latest.model } as any;
+          aiConfig = {
+            provider: latest.provider as any,
+            apiKey: latest.apiKey,
+            model: latest.model,
+          } as any;
         }
       }
     } catch (e) {
@@ -92,7 +97,9 @@ async function getDynamicProvider() {
     }
 
     if (!aiConfig) {
-      console.log('[CHAT ROUTE] No AI config found, falling back to default xAI');
+      console.log(
+        '[CHAT ROUTE] No AI config found, falling back to default xAI',
+      );
       // Fallback to default xAI configuration
       return customProvider({
         languageModels: {
@@ -109,9 +116,9 @@ async function getDynamicProvider() {
 
   // Create provider based on configuration
   console.log('[CHAT ROUTE] Creating provider for:', aiConfig.provider);
-  
+
   let mainModel: any;
-  
+
   switch (aiConfig.provider) {
     case 'openai':
       console.log('[CHAT ROUTE] Configuring OpenAI');
@@ -127,7 +134,10 @@ async function getDynamicProvider() {
       }
       break;
     case 'anthropic':
-      console.log('[CHAT ROUTE] Configuring Anthropic with model:', aiConfig.model);
+      console.log(
+        '[CHAT ROUTE] Configuring Anthropic with model:',
+        aiConfig.model,
+      );
       try {
         mainModel = anthropic(aiConfig.model);
         console.log('[CHAT ROUTE] Anthropic model created successfully');
@@ -137,7 +147,10 @@ async function getDynamicProvider() {
       }
       break;
     case 'google':
-      console.log('[CHAT ROUTE] Configuring Google with model:', aiConfig.model);
+      console.log(
+        '[CHAT ROUTE] Configuring Google with model:',
+        aiConfig.model,
+      );
       try {
         mainModel = google(aiConfig.model);
         console.log('[CHAT ROUTE] Google model created successfully');
@@ -154,16 +167,22 @@ async function getDynamicProvider() {
         console.log('[CHAT ROUTE] OpenRouter model created successfully');
       } catch (error) {
         console.error('[CHAT ROUTE] Error creating OpenRouter model:', error);
-        console.error('[CHAT ROUTE] Full error details:', JSON.stringify(error, null, 2));
+        console.error(
+          '[CHAT ROUTE] Full error details:',
+          JSON.stringify(error, null, 2),
+        );
         throw error;
       }
       break;
     case 'deepseek':
-      console.log('[CHAT ROUTE] Configuring DeepSeek with model:', aiConfig.model);
+      console.log(
+        '[CHAT ROUTE] Configuring DeepSeek with model:',
+        aiConfig.model,
+      );
       try {
         const deepSeekProvider = createOpenAI({
           apiKey: aiConfig.apiKey,
-          baseURL: 'https://api.deepseek.com'
+          baseURL: 'https://api.deepseek.com',
         });
         mainModel = deepSeekProvider(aiConfig.model);
         console.log('[CHAT ROUTE] DeepSeek model created successfully');
@@ -185,17 +204,21 @@ async function getDynamicProvider() {
       break;
   }
 
-  console.log('[CHAT ROUTE] Model configured successfully for:', aiConfig.provider);
-  
+  console.log(
+    '[CHAT ROUTE] Model configured successfully for:',
+    aiConfig.provider,
+  );
+
   return customProvider({
     languageModels: {
       'chat-model': mainModel,
       'title-model': mainModel,
       'artifact-model': mainModel,
     },
-    imageModels: aiConfig.provider === 'xai' 
-      ? { 'small-model': xai.imageModel('grok-2-image') }
-      : undefined,
+    imageModels:
+      aiConfig.provider === 'xai'
+        ? { 'small-model': xai.imageModel('grok-2-image') }
+        : undefined,
   });
 }
 
@@ -246,6 +269,36 @@ export async function POST(request: Request) {
 
     if (!authData?.user) {
       return new ChatSDKError('unauthorized:chat').toResponse();
+    }
+
+    // Monetization gate: simple 3-day free trial, then require upgrade
+    if (BILLING_ENABLED) {
+      const cookieStore = await cookies();
+      const trialCookie = cookieStore.get('trial_until')?.value;
+      let trialUntil = trialCookie ? new Date(trialCookie) : null;
+      if (!trialUntil || Number.isNaN(trialUntil.getTime())) {
+        trialUntil = new Date(
+          Date.now() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+        );
+        cookieStore.set('trial_until', trialUntil.toISOString(), {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: FREE_TRIAL_DAYS * 24 * 60 * 60,
+          path: '/',
+        });
+      } else if (Date.now() > trialUntil.getTime()) {
+        return new Response(
+          JSON.stringify({
+            error: 'upgrade_required',
+            message:
+              'Your free trial has ended. Please upgrade to continue chatting.',
+            trialEnded: true,
+            trialUntil: trialUntil.toISOString(),
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
     // Simplified for minimal MCP client - no rate limiting for guest users
@@ -307,7 +360,7 @@ export async function POST(request: Request) {
     // Load WordPress MCP tools if connected
     let wordPressTools = {};
     let wpSystemPromptAddition = '';
-    
+
     if (wpBase && wpJwt) {
       try {
         wordPressTools = await loadWordPressTools({
@@ -315,13 +368,17 @@ export async function POST(request: Request) {
           jwt: wpJwt,
           writeMode: wpWriteMode,
         });
-        
+
         const toolCount = Object.keys(wordPressTools).length;
-        console.log(`WordPress MCP tools loaded: ${toolCount} tools available from ${wpBase}`);
-        
-        wpSystemPromptAddition = `\n\nYou are connected to a WordPress site at ${wpBase} via MCP (Model Context Protocol).\nWrite Mode is ${wpWriteMode ? 'ENABLED' : 'DISABLED (read-only)'}.\n${wpWriteMode 
-          ? 'You can create, update, and delete content on the WordPress site.' 
-          : 'You can only read content from the WordPress site. Any write operations will be blocked.'}\n\nYou have access to ${toolCount} WordPress MCP tools that are dynamically loaded from the connected WordPress site. These tools allow you to:\n- Manage posts, pages, and custom post types\n- Handle media and attachments\n- Work with users and permissions\n- Access WooCommerce data (if available)\n- Manage settings and configurations\n- Execute custom WordPress operations\n- Access any custom MCP tools installed on the WordPress site\n\nIMPORTANT WordPress MCP Tool Usage:\n- ALWAYS use these tools when users ask about their WordPress content\n- These are real MCP tools connected to the actual WordPress site\n- The tools available depend on what's installed on the WordPress site\n- Tool names and capabilities are dynamically determined by the WordPress MCP server\n- Confirm destructive actions with the user first\n- Provide clear feedback about what actions you're taking\n- Handle errors gracefully and explain them to the user\n- If a tool fails, explain the error and suggest alternatives`;
+        console.log(
+          `WordPress MCP tools loaded: ${toolCount} tools available from ${wpBase}`,
+        );
+
+        wpSystemPromptAddition = `\n\nYou are connected to a WordPress site at ${wpBase} via MCP (Model Context Protocol).\nWrite Mode is ${wpWriteMode ? 'ENABLED' : 'DISABLED (read-only)'}.\n${
+          wpWriteMode
+            ? 'You can create, update, and delete content on the WordPress site.'
+            : 'You can only read content from the WordPress site. Any write operations will be blocked.'
+        }\n\nYou have access to ${toolCount} WordPress MCP tools that are dynamically loaded from the connected WordPress site. These tools allow you to:\n- Manage posts, pages, and custom post types\n- Handle media and attachments\n- Work with users and permissions\n- Access WooCommerce data (if available)\n- Manage settings and configurations\n- Execute custom WordPress operations\n- Access any custom MCP tools installed on the WordPress site\n\nIMPORTANT WordPress MCP Tool Usage:\n- ALWAYS use these tools when users ask about their WordPress content\n- These are real MCP tools connected to the actual WordPress site\n- The tools available depend on what's installed on the WordPress site\n- Tool names and capabilities are dynamically determined by the WordPress MCP server\n- Confirm destructive actions with the user first\n- Provide clear feedback about what actions you're taking\n- Handle errors gracefully and explain them to the user\n- If a tool fails, explain the error and suggest alternatives`;
       } catch (error) {
         console.error('Failed to load WordPress MCP tools:', error);
         // Continue without WordPress tools
@@ -377,7 +434,9 @@ IMPORTANT Firecrawl Usage Guidelines:
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: dynamicProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }) + wpSystemPromptAddition,
+          system:
+            systemPrompt({ selectedChatModel, requestHints }) +
+            wpSystemPromptAddition,
           messages: convertToModelMessages(uiMessages),
           maxOutputTokens: 4096,
           stopWhen: stepCountIs(5),
@@ -399,8 +458,14 @@ IMPORTANT Firecrawl Usage Guidelines:
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: {
             getWeather,
-            createDocument: createDocument({ session: authData.session, dataStream }),
-            updateDocument: updateDocument({ session: authData.session, dataStream }),
+            createDocument: createDocument({
+              session: authData.session,
+              dataStream,
+            }),
+            updateDocument: updateDocument({
+              session: authData.session,
+              dataStream,
+            }),
             requestSuggestions: requestSuggestions({
               session: authData.session,
               dataStream,

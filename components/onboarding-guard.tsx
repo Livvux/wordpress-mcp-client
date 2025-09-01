@@ -16,16 +16,17 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     const checkOnboardingStatus = () => {
       try {
         // Check if onboarding was completed or skipped (use localStorage for persistent flags)
-        const isCompleted = localStorage.getItem('onboarding-completed') === 'true';
+        const isCompleted =
+          localStorage.getItem('onboarding-completed') === 'true';
         const isSkipped = localStorage.getItem('onboarding-skipped') === 'true';
-        
+
         // Check if AI configuration exists in sessionStorage (primary) or localStorage (migration)
         const hasSessionConfig = sessionStorage.getItem('ai-config') !== null;
         const hasLocalConfig = localStorage.getItem('ai-config') !== null;
         const hasAIConfig = hasSessionConfig || hasLocalConfig;
-        
+
         const needsOnboarding = !isCompleted && !isSkipped && !hasAIConfig;
-        
+
         if (needsOnboarding) {
           setShouldShowOnboarding(true);
           // Redirect to onboarding after a brief moment to avoid flash

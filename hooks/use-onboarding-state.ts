@@ -2,7 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import type { AIConfiguration } from '@/lib/ai/providers-config';
-import { saveAIConfiguration, loadAIConfiguration } from '@/lib/ai/providers-config';
+import {
+  saveAIConfiguration,
+  loadAIConfiguration,
+} from '@/lib/ai/providers-config';
 
 export interface WordPressConfiguration {
   siteUrl: string;
@@ -39,7 +42,7 @@ export function useOnboardingState() {
   const loadExistingConfig = useCallback(async () => {
     const existingAIConfig = await loadAIConfiguration();
     if (existingAIConfig) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         aiConfig: existingAIConfig,
         validations: {
@@ -52,7 +55,7 @@ export function useOnboardingState() {
 
   // AI Configuration
   const setProvider = useCallback((provider: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       aiConfig: {
         ...prev.aiConfig,
@@ -68,7 +71,7 @@ export function useOnboardingState() {
   }, []);
 
   const setApiKey = useCallback((apiKey: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       aiConfig: {
         ...prev.aiConfig,
@@ -82,7 +85,7 @@ export function useOnboardingState() {
   }, []);
 
   const setModel = useCallback((model: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       aiConfig: {
         ...prev.aiConfig,
@@ -96,7 +99,7 @@ export function useOnboardingState() {
   }, []);
 
   const setAIConfigValid = useCallback((isValid: boolean) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       validations: {
         ...prev.validations,
@@ -107,7 +110,7 @@ export function useOnboardingState() {
 
   // WordPress Configuration
   const setSiteUrl = useCallback((siteUrl: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       wpConfig: {
         ...prev.wpConfig,
@@ -121,7 +124,7 @@ export function useOnboardingState() {
   }, []);
 
   const setJwtToken = useCallback((jwtToken: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       wpConfig: {
         ...prev.wpConfig,
@@ -135,7 +138,7 @@ export function useOnboardingState() {
   }, []);
 
   const setWriteMode = useCallback((writeMode: boolean) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       wpConfig: {
         ...prev.wpConfig,
@@ -145,7 +148,7 @@ export function useOnboardingState() {
   }, []);
 
   const setWPConfigValid = useCallback((isValid: boolean) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       validations: {
         ...prev.validations,
@@ -156,21 +159,21 @@ export function useOnboardingState() {
 
   // Navigation
   const nextStep = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       currentStep: Math.min(prev.currentStep + 1, 3),
     }));
   }, []);
 
   const previousStep = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       currentStep: Math.max(prev.currentStep - 1, 1),
     }));
   }, []);
 
   const goToStep = useCallback((step: number) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       currentStep: Math.max(1, Math.min(step, 3)),
     }));
@@ -183,7 +186,11 @@ export function useOnboardingState() {
 
   // Save configurations
   const saveAIConfig = useCallback(async () => {
-    if (state.aiConfig.provider && state.aiConfig.apiKey && state.aiConfig.model) {
+    if (
+      state.aiConfig.provider &&
+      state.aiConfig.apiKey &&
+      state.aiConfig.model
+    ) {
       const config: AIConfiguration = {
         provider: state.aiConfig.provider,
         apiKey: state.aiConfig.apiKey,
@@ -223,10 +230,10 @@ export function useOnboardingState() {
     try {
       await saveAIConfig();
       await saveWPConfig();
-      
+
       // Mark onboarding as completed in localStorage
       localStorage.setItem('onboarding-completed', 'true');
-      
+
       return true;
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
@@ -242,29 +249,29 @@ export function useOnboardingState() {
   return {
     // State
     ...state,
-    
+
     // AI Configuration
     setProvider,
     setApiKey,
     setModel,
     setAIConfigValid,
-    
+
     // WordPress Configuration
     setSiteUrl,
     setJwtToken,
     setWriteMode,
     setWPConfigValid,
-    
+
     // Navigation
     nextStep,
     previousStep,
     goToStep,
-    
+
     // Validation
     canProceedFromStep1,
     canProceedFromStep2,
     isOnboardingComplete,
-    
+
     // Actions
     loadExistingConfig,
     saveAIConfig,

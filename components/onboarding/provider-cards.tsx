@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLinkIcon } from 'lucide-react';
@@ -15,7 +21,11 @@ interface ProviderCardsProps {
   onProviderSelect: (providerId: string) => void;
 }
 
-export function ProviderCards({ providers, selectedProvider, onProviderSelect }: ProviderCardsProps) {
+export function ProviderCards({
+  providers,
+  selectedProvider,
+  onProviderSelect,
+}: ProviderCardsProps) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   return (
@@ -23,14 +33,14 @@ export function ProviderCards({ providers, selectedProvider, onProviderSelect }:
       {providers.map((provider) => {
         const isSelected = selectedProvider === provider.id;
         const isHovered = hoveredCard === provider.id;
-        
+
         return (
           <Card
             key={provider.id}
             className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-lg",
-              isSelected && "ring-2 ring-blue-600 ring-offset-2",
-              isHovered && !isSelected && "shadow-md"
+              'cursor-pointer transition-all duration-200 hover:shadow-lg',
+              isSelected && 'ring-2 ring-blue-600 ring-offset-2',
+              isHovered && !isSelected && 'shadow-md',
             )}
             onClick={() => onProviderSelect(provider.id)}
             onMouseEnter={() => setHoveredCard(provider.id)}
@@ -65,14 +75,16 @@ export function ProviderCards({ providers, selectedProvider, onProviderSelect }:
               <CardDescription className="text-sm leading-relaxed">
                 {provider.description}
               </CardDescription>
-              
+
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Popular Models:</div>
+                <div className="text-xs font-medium text-muted-foreground">
+                  Popular Models:
+                </div>
                 <div className="flex flex-wrap gap-1">
                   {provider.models.slice(0, 2).map((model) => (
-                    <Badge 
-                      key={model.id} 
-                      variant="outline" 
+                    <Badge
+                      key={model.id}
+                      variant="outline"
                       className="text-xs px-2 py-0.5"
                     >
                       {model.name}

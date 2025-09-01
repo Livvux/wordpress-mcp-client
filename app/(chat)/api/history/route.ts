@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
-    
+
     console.error('Unexpected error in GET /api/history:', error);
     return new ChatSDKError(
       'bad_request:api',

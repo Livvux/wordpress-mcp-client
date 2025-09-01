@@ -4,7 +4,14 @@ export interface FirecrawlConfig {
 }
 
 export interface ScrapeOptions {
-  formats?: ('markdown' | 'html' | 'rawHtml' | 'screenshot' | 'links' | 'json')[];
+  formats?: (
+    | 'markdown'
+    | 'html'
+    | 'rawHtml'
+    | 'screenshot'
+    | 'links'
+    | 'json'
+  )[];
   timeout?: number;
   waitFor?: number;
   onlyMainContent?: boolean;

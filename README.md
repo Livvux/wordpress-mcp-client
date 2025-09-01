@@ -2,6 +2,8 @@
 
 Self‑hostable Chat UI to assist with WordPress via MCP (Model Context Protocol). This OSS edition runs without database or authentication, keeps sessions local in the browser, and integrates with a WordPress MCP plugin for actions.
 
+This repo also includes a minimal WordPress plugin skeleton under `plugins/wp-cursor` that exposes read‑only MCP tools (posts.list, posts.get, logs.tail, files.read) and an admin console with signed audit log.
+
 - Docs: docs/oss-getting-started.md
 - MCP Setup: docs/mcp-setup.md
 - Configuration: docs/oss-config.md

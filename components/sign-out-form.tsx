@@ -10,7 +10,7 @@ export const SignOutForm = () => {
     try {
       // Clear browser session
       deleteBrowserSession();
-      
+
       // Redirect to home and refresh to create new session
       router.push('/');
       router.refresh();

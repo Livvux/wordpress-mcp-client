@@ -25,17 +25,20 @@ function loadAIConfigurationSync(): AIConfiguration | null {
       if (saved) {
         return JSON.parse(saved);
       }
-      
+
       // Fallback to localStorage (for migration purposes)
       saved = localStorage.getItem('ai-config');
       if (saved) {
         const config = JSON.parse(saved);
         return config;
       }
-      
+
       return null;
     } catch (error) {
-      console.warn('Failed to load AI configuration from client storage:', error);
+      console.warn(
+        'Failed to load AI configuration from client storage:',
+        error,
+      );
       return null;
     }
   }
@@ -48,12 +51,12 @@ function loadAIConfigurationSync(): AIConfiguration | null {
       const provider = process.env.AI_PROVIDER;
       const apiKey = process.env.AI_API_KEY;
       const model = process.env.AI_MODEL;
-      
+
       if (provider && apiKey && model) {
         return { provider, apiKey, model };
       }
     }
-    
+
     return null;
   } catch (error) {
     console.warn('Failed to load AI configuration from server storage:', error);
@@ -75,7 +78,7 @@ function createDynamicProvider() {
 
   // Load saved configuration from onboarding
   const aiConfig = loadAIConfigurationSync();
-  
+
   if (!aiConfig) {
     // Fallback to environment-based configuration if no saved config
     return customProvider({
@@ -97,7 +100,7 @@ function createDynamicProvider() {
   // Create provider based on saved configuration
   let providerFunc: (model: string) => any;
   let config: { apiKey: string; baseURL?: string };
-  
+
   switch (aiConfig.provider) {
     case 'openai':
       providerFunc = openai;
@@ -113,7 +116,10 @@ function createDynamicProvider() {
       break;
     case 'openrouter':
       providerFunc = openai;
-      config = { apiKey: aiConfig.apiKey, baseURL: 'https://openrouter.ai/api/v1' };
+      config = {
+        apiKey: aiConfig.apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+      };
       break;
     case 'deepseek':
       providerFunc = openai;
@@ -128,22 +134,24 @@ function createDynamicProvider() {
 
   const mainModel = providerFunc(aiConfig.model);
   const titleModelVar = providerFunc(aiConfig.model); // Use same model for titles
-  
+
   return customProvider({
     languageModels: {
       'chat-model': mainModel,
-      'chat-model-reasoning': aiConfig.provider === 'xai' 
-        ? wrapLanguageModel({
-            model: providerFunc('grok-3-mini-beta'),
-            middleware: extractReasoningMiddleware({ tagName: 'think' }),
-          })
-        : mainModel,
+      'chat-model-reasoning':
+        aiConfig.provider === 'xai'
+          ? wrapLanguageModel({
+              model: providerFunc('grok-3-mini-beta'),
+              middleware: extractReasoningMiddleware({ tagName: 'think' }),
+            })
+          : mainModel,
       'title-model': titleModelVar,
       'artifact-model': mainModel,
     },
-    imageModels: aiConfig.provider === 'xai' 
-      ? { 'small-model': xai.imageModel('grok-2-image') }
-      : undefined,
+    imageModels:
+      aiConfig.provider === 'xai'
+        ? { 'small-model': xai.imageModel('grok-2-image') }
+        : undefined,
   });
 }
 

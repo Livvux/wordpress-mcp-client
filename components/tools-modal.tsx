@@ -26,12 +26,12 @@ interface MCPToolsResponse {
 
 const categoryLabels: Record<string, string> = {
   posts: 'Posts',
-  pages: 'Pages', 
+  pages: 'Pages',
   media: 'Media',
   users: 'Users',
   settings: 'Settings',
   woocommerce: 'WooCommerce',
-  other: 'Other'
+  other: 'Other',
 };
 
 export function ToolsModal({ status, isConnected }: ToolsModalProps) {
@@ -41,10 +41,10 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
 
   const fetchTools = async () => {
     if (!isConnected) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch('/api/mcp/tools/list', {
         method: 'POST',
@@ -55,11 +55,11 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
         console.error('Tools list error response:', {
           status: response.status,
           statusText: response.statusText,
-          body: errorText
+          body: errorText,
         });
-        
+
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
+
         // Try to parse error details
         try {
           const errorData = JSON.parse(errorText);
@@ -69,7 +69,7 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
         } catch {
           // Keep the HTTP error message
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -113,14 +113,17 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
           </Button>
         </div>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[400px] sm:w-[540px] flex flex-col">
+      <SheetContent
+        side="right"
+        className="w-[400px] sm:w-[540px] flex flex-col"
+      >
         <SheetHeader>
           <SheetTitle>WordPress MCP Tools</SheetTitle>
           <SheetDescription>
             Available tools from your WordPress MCP connection
           </SheetDescription>
         </SheetHeader>
-        
+
         <div className="flex-1 overflow-hidden">
           {!isConnected ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -135,9 +138,9 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
               <div>
                 <p className="text-center mb-4">Error loading tools</p>
                 <p className="text-sm text-center mb-4">{error}</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={fetchTools}
                   className="mx-auto block"
                 >
@@ -151,45 +154,51 @@ export function ToolsModal({ status, isConnected }: ToolsModalProps) {
             </div>
           ) : (
             <div className="space-y-6 overflow-y-auto h-full pr-2">
-              {Object.entries(categorizedTools).map(([category, categoryTools]) => (
-                <div key={category} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-medium">{categoryLabels[category] || category}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {categoryTools.length}
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {categoryTools.map((tool) => (
-                      <div 
-                        key={tool.name}
-                        className="p-3 border rounded-lg space-y-2 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{tool.name}</h4>
-                          {tool.kind && (
-                            <Badge 
-                              variant={tool.kind === 'action' ? 'default' : 'outline'}
-                              className="text-xs"
-                            >
-                              {tool.kind}
-                            </Badge>
+              {Object.entries(categorizedTools).map(
+                ([category, categoryTools]) => (
+                  <div key={category} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-medium">
+                        {categoryLabels[category] || category}
+                      </h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {categoryTools.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {categoryTools.map((tool) => (
+                        <div
+                          key={tool.name}
+                          className="p-3 border rounded-lg space-y-2 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-sm">{tool.name}</h4>
+                            {tool.kind && (
+                              <Badge
+                                variant={
+                                  tool.kind === 'action' ? 'default' : 'outline'
+                                }
+                                className="text-xs"
+                              >
+                                {tool.kind}
+                              </Badge>
+                            )}
+                          </div>
+                          {tool.description && (
+                            <p className="text-sm text-muted-foreground">
+                              {tool.description}
+                            </p>
                           )}
                         </div>
-                        {tool.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {tool.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           )}
         </div>
-        
+
         {isConnected && totalTools > 0 && (
           <div className="mt-4 pt-4 border-t">
             <p className="text-sm text-muted-foreground text-center">

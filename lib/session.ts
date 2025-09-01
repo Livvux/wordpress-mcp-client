@@ -31,7 +31,10 @@ export interface BrowserSession extends Session {
 // Server-side session utilities moved to `lib/session-server.ts`
 
 // Browser-side session utilities (for client components)
-export function createBrowserSession(userType: UserType = 'guest', email?: string): BrowserSession {
+export function createBrowserSession(
+  userType: UserType = 'guest',
+  email?: string,
+): BrowserSession {
   const userId = userType === 'guest' ? `guest_${nanoid()}` : nanoid();
   const user: User = {
     id: userId,
@@ -40,7 +43,7 @@ export function createBrowserSession(userType: UserType = 'guest', email?: strin
     image: null,
     type: userType,
   };
-  
+
   const session: BrowserSession = {
     id: nanoid(),
     userId,
@@ -69,7 +72,7 @@ export function getBrowserSession(): BrowserSession | null {
   try {
     // First try sessionStorage (tab-specific)
     let sessionData = sessionStorage.getItem('mcp_session');
-    
+
     // Fall back to localStorage if sessionStorage is empty
     if (!sessionData) {
       sessionData = localStorage.getItem('mcp_session_backup');
@@ -82,18 +85,21 @@ export function getBrowserSession(): BrowserSession | null {
     if (!sessionData) return null;
 
     const session = JSON.parse(sessionData);
-    
+
     // Ensure user object exists (backward compatibility)
     if (!session.user) {
       session.user = {
         id: session.userId,
         email: session.email || null,
-        name: session.userType === 'guest' ? `Guest User` : session.email?.split('@')[0] || 'User',
+        name:
+          session.userType === 'guest'
+            ? `Guest User`
+            : session.email?.split('@')[0] || 'User',
         image: null,
         type: session.userType,
       };
     }
-    
+
     return {
       ...session,
       createdAt: new Date(session.createdAt),
@@ -124,23 +130,30 @@ export function getOrCreateBrowserSession(): BrowserSession {
   return createBrowserSession();
 }
 
-export function sessionToUser(session: Session | BrowserSession | null): User | null {
+export function sessionToUser(
+  session: Session | BrowserSession | null,
+): User | null {
   if (!session) return null;
-  
+
   return {
     id: session.userId,
     email: session.email || null,
-    name: session.userType === 'guest' ? `Guest User` : session.email?.split('@')[0] || 'User',
+    name:
+      session.userType === 'guest'
+        ? `Guest User`
+        : session.email?.split('@')[0] || 'User',
     image: null,
     type: session.userType,
   };
 }
 
-export function sessionToNextAuthSession(session: Session | BrowserSession | null): { user: User } | null {
+export function sessionToNextAuthSession(
+  session: Session | BrowserSession | null,
+): { user: User } | null {
   if (!session) return null;
-  
+
   const user = sessionToUser(session);
   if (!user) return null;
-  
+
   return { user };
 }

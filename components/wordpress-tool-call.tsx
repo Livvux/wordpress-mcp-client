@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
@@ -12,12 +18,12 @@ interface WordPressToolCallProps {
   args?: any;
 }
 
-export function WordPressToolCall({ 
-  toolName, 
-  status, 
-  result, 
-  error, 
-  args 
+export function WordPressToolCall({
+  toolName,
+  status,
+  result,
+  error,
+  args,
 }: WordPressToolCallProps) {
   const getStatusIcon = () => {
     switch (status) {
@@ -51,7 +57,7 @@ export function WordPressToolCall({
   const formatToolName = (name: string) => {
     return name
       .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   };
 
@@ -63,9 +69,7 @@ export function WordPressToolCall({
             {getStatusIcon()}
             WordPress Tool: {formatToolName(toolName)}
           </CardTitle>
-          <Badge variant={getStatusColor() as any}>
-            {status}
-          </Badge>
+          <Badge variant={getStatusColor() as any}>{status}</Badge>
         </div>
         {args && Object.keys(args).length > 0 && (
           <CardDescription className="text-xs mt-1">
@@ -82,7 +86,9 @@ export function WordPressToolCall({
           ) : result ? (
             <div className="text-sm">
               <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-                {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                {typeof result === 'string'
+                  ? result
+                  : JSON.stringify(result, null, 2)}
               </pre>
             </div>
           ) : null}

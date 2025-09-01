@@ -14,6 +14,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
 import {
@@ -42,14 +43,46 @@ import { decryptSecret, encryptSecret } from '../crypto';
 // use the Drizzle adapter for Auth.js / NextAuth
 // https://authjs.dev/reference/adapter/drizzle
 
-const client = DB_ENABLED && process.env.POSTGRES_URL ? postgres(process.env.POSTGRES_URL) : null;
-const db = client ? drizzle(client) : null as unknown as ReturnType<typeof drizzle>;
+const client =
+  DB_ENABLED && process.env.POSTGRES_URL
+    ? postgres(process.env.POSTGRES_URL)
+    : null;
+const db = client
+  ? drizzle(client)
+  : (null as unknown as ReturnType<typeof drizzle>);
 
 function ensureDb() {
   if (!db) {
-    throw new ChatSDKError('bad_request:database', 'Database is disabled in this mode');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Database is disabled in this mode',
+    );
   }
   return db;
+}
+
+// Lazily ensure the database is ready (extension + migrations) in dev/local.
+// This runs once per process and is safe to call multiple times.
+let dbReadyPromise: Promise<void> | null = null;
+async function ensureDbReady(): Promise<void> {
+  if (!client || !db) return; // DB disabled or not configured
+  if (dbReadyPromise) return dbReadyPromise;
+  dbReadyPromise = (async () => {
+    try {
+      // Ensure pgcrypto for gen_random_uuid used by defaultRandom()
+      // @ts-expect-error postgres client has unsafe
+      await client.unsafe?.('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    } catch (err) {
+      console.warn('Warning: failed ensuring pgcrypto extension:', err);
+    }
+    try {
+      await migrate(db as any, { migrationsFolder: './lib/db/migrations' });
+    } catch (err) {
+      // If migrations cannot run at runtime (e.g., prod), continue; tables may already exist
+      console.warn('Warning: failed running migrations at runtime:', err);
+    }
+  })();
+  return dbReadyPromise;
 }
 
 // Simplified user management - using session-based guest users
@@ -67,27 +100,38 @@ export async function getUser(email: string): Promise<Array<User>> {
 
 export async function getOrCreateGuestUser(guestId: string): Promise<User> {
   try {
+    await ensureDbReady();
+    const safeGuestId =
+      typeof guestId === 'string' && guestId.trim().length > 0
+        ? guestId
+        : `guest-${Date.now()}`;
     // Check if guest user exists
     const _db = ensureDb();
-    const existingUsers = await _db.select().from(user).where(eq(user.email, guestId));
+    const existingUsers = await _db
+      .select()
+      .from(user)
+      .where(eq(user.email, safeGuestId));
     if (existingUsers.length > 0) {
       return existingUsers[0];
     }
-    
+
     // Create new guest user with simplified approach
     const [newUser] = await _db
       .insert(user)
       .values({
-        email: guestId,
+        email: safeGuestId,
         password: null,
       })
       .returning();
-    
+
     return newUser;
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? 'Unknown error');
+    console.error('getOrCreateGuestUser error:', error);
     throw new ChatSDKError(
       'bad_request:database',
-      'Failed to get or create guest user',
+      `Failed to get or create guest user: ${message}`,
     );
   }
 }
@@ -447,29 +491,57 @@ export async function upsertAIIntegration({
     const existing = await db
       .select({ userId: aiIntegration.userId })
       .from(aiIntegration)
-      .where(and(eq(aiIntegration.userId, userId), eq(aiIntegration.provider, provider)));
+      .where(
+        and(
+          eq(aiIntegration.userId, userId),
+          eq(aiIntegration.provider, provider),
+        ),
+      );
 
     if (existing.length > 0) {
       await db
         .update(aiIntegration)
         .set({ model, apiKeyEncrypted, updatedAt: new Date() })
-        .where(and(eq(aiIntegration.userId, userId), eq(aiIntegration.provider, provider)));
+        .where(
+          and(
+            eq(aiIntegration.userId, userId),
+            eq(aiIntegration.provider, provider),
+          ),
+        );
       return { userId, provider, model };
     }
 
-    await db.insert(aiIntegration).values({ userId, provider, model, apiKeyEncrypted, createdAt: new Date(), updatedAt: new Date() });
+    await db.insert(aiIntegration).values({
+      userId,
+      provider,
+      model,
+      apiKeyEncrypted,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     return { userId, provider, model };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save AI integration');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to save AI integration',
+    );
   }
 }
 
-export async function getAIIntegration({ userId, provider }: { userId: string; provider: string }) {
+export async function getAIIntegration({
+  userId,
+  provider,
+}: { userId: string; provider: string }) {
   try {
     const rows = await db
       .select()
       .from(aiIntegration)
-      .where(and(eq(aiIntegration.userId, userId), eq(aiIntegration.provider, provider)));
+      .where(
+        and(
+          eq(aiIntegration.userId, userId),
+          eq(aiIntegration.provider, provider),
+        ),
+      );
     if (rows.length === 0) return null;
     const row = rows[0];
     return {
@@ -479,17 +551,31 @@ export async function getAIIntegration({ userId, provider }: { userId: string; p
       apiKey: decryptSecret(row.apiKeyEncrypted),
     };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to load AI integration');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load AI integration',
+    );
   }
 }
 
-export async function deleteAIIntegration({ userId, provider }: { userId: string; provider: string }) {
+export async function deleteAIIntegration({
+  userId,
+  provider,
+}: { userId: string; provider: string }) {
   try {
     await db
       .delete(aiIntegration)
-      .where(and(eq(aiIntegration.userId, userId), eq(aiIntegration.provider, provider)));
+      .where(
+        and(
+          eq(aiIntegration.userId, userId),
+          eq(aiIntegration.provider, provider),
+        ),
+      );
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete AI integration');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to delete AI integration',
+    );
   }
 }
 
@@ -510,7 +596,10 @@ export async function getLatestAIIntegrationByUserId(userId: string) {
       apiKey: decryptSecret(row.apiKeyEncrypted),
     };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to load latest AI integration');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load latest AI integration',
+    );
   }
 }
 
@@ -541,10 +630,20 @@ export async function upsertWordPressConnection({
       return { userId, siteUrl, writeMode };
     }
 
-    await db.insert(wordpressConnection).values({ userId, siteUrl, jwtEncrypted, writeMode, createdAt: new Date(), updatedAt: new Date() });
+    await db.insert(wordpressConnection).values({
+      userId,
+      siteUrl,
+      jwtEncrypted,
+      writeMode,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     return { userId, siteUrl, writeMode };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to save WordPress connection');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to save WordPress connection',
+    );
   }
 }
 
@@ -563,26 +662,40 @@ export async function getWordPressConnectionByUserId(userId: string) {
       writeMode: row.writeMode,
     };
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to load WordPress connection');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load WordPress connection',
+    );
   }
 }
 
-export async function updateWordPressWriteMode({ userId, enabled }: { userId: string; enabled: boolean }) {
+export async function updateWordPressWriteMode({
+  userId,
+  enabled,
+}: { userId: string; enabled: boolean }) {
   try {
     await db
       .update(wordpressConnection)
       .set({ writeMode: enabled, updatedAt: new Date() })
       .where(eq(wordpressConnection.userId, userId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to update WordPress write mode');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to update WordPress write mode',
+    );
   }
 }
 
 export async function deleteWordPressConnectionByUserId(userId: string) {
   try {
-    await db.delete(wordpressConnection).where(eq(wordpressConnection.userId, userId));
+    await db
+      .delete(wordpressConnection)
+      .where(eq(wordpressConnection.userId, userId));
   } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to delete WordPress connection');
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to delete WordPress connection',
+    );
   }
 }
 

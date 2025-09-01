@@ -29,4 +29,3 @@ export function isAllowedOrigin(request: Request): boolean {
     return isDevelopmentEnvironment;
   }
 }
-

@@ -19,21 +19,21 @@ async function getDynamicProvider() {
   // Try to load AI configuration from cookies
   const cookieStore = await cookies();
   const aiConfigCookie = cookieStore.get('ai_config');
-  
+
   console.log('Cookie store contents:', {
     aiConfigExists: !!aiConfigCookie,
-    cookieValue: aiConfigCookie?.value ? '[REDACTED]' : 'null'
+    cookieValue: aiConfigCookie?.value ? '[REDACTED]' : 'null',
   });
-  
+
   let aiConfig: AIConfiguration | null = null;
-  
+
   if (aiConfigCookie?.value) {
     try {
       aiConfig = JSON.parse(aiConfigCookie.value);
       console.log('Parsed AI config:', {
         provider: aiConfig?.provider,
         model: aiConfig?.model,
-        hasApiKey: !!aiConfig?.apiKey
+        hasApiKey: !!aiConfig?.apiKey,
       });
     } catch (error) {
       console.warn('Failed to parse AI configuration from cookies:', error);
@@ -54,9 +54,9 @@ async function getDynamicProvider() {
 
   // Create provider based on configuration
   console.log('Creating provider for:', aiConfig.provider);
-  
+
   let mainModel: any;
-  
+
   switch (aiConfig.provider) {
     case 'openai':
       console.log('Configuring OpenAI');
@@ -108,7 +108,7 @@ async function getDynamicProvider() {
       try {
         const deepSeekProvider = createOpenAI({
           apiKey: aiConfig.apiKey,
-          baseURL: 'https://api.deepseek.com'
+          baseURL: 'https://api.deepseek.com',
         });
         mainModel = deepSeekProvider(aiConfig.model);
         console.log('DeepSeek model created successfully');
@@ -131,7 +131,7 @@ async function getDynamicProvider() {
   }
 
   console.log('Model configured successfully for:', aiConfig.provider);
-  
+
   return customProvider({
     languageModels: {
       'chat-model': mainModel,
@@ -152,7 +152,7 @@ export async function generateTitleFromUserMessage({
   message: UIMessage;
 }) {
   const dynamicProvider = await getDynamicProvider();
-  
+
   const { text: title } = await generateText({
     model: dynamicProvider.languageModel('title-model'),
     system: `\n

@@ -26,7 +26,8 @@ export function zodFromJsonSchema(schema: any): z.ZodTypeAny {
 
     case 'number':
     case 'integer': {
-      let numberSchema = schema.type === 'integer' ? z.number().int() : z.number();
+      let numberSchema =
+        schema.type === 'integer' ? z.number().int() : z.number();
       if (schema.description) {
         numberSchema = numberSchema.describe(schema.description);
       }
@@ -40,7 +41,9 @@ export function zodFromJsonSchema(schema: any): z.ZodTypeAny {
     }
 
     case 'boolean':
-      return schema.description ? z.boolean().describe(schema.description) : z.boolean();
+      return schema.description
+        ? z.boolean().describe(schema.description)
+        : z.boolean();
 
     case 'array': {
       const itemSchema = zodFromJsonSchema(schema.items || {});
@@ -59,31 +62,34 @@ export function zodFromJsonSchema(schema: any): z.ZodTypeAny {
 
     case 'object': {
       const shape: Record<string, z.ZodTypeAny> = {};
-      
+
       for (const [key, value] of Object.entries(schema.properties || {})) {
         let fieldSchema = zodFromJsonSchema(value);
-        
+
         // Handle required fields
         const isRequired = schema.required?.includes(key);
         if (!isRequired) {
           fieldSchema = fieldSchema.optional();
         }
-        
+
         shape[key] = fieldSchema;
       }
-      
+
       let objectSchema = z.object(shape);
       if (schema.description) {
         objectSchema = objectSchema.describe(schema.description);
       }
-      
+
       // Handle additionalProperties
       if (schema.additionalProperties === false) {
         return objectSchema.strict() as any;
-      } else if (schema.additionalProperties === true || schema.additionalProperties) {
+      } else if (
+        schema.additionalProperties === true ||
+        schema.additionalProperties
+      ) {
         return objectSchema.passthrough() as any;
       }
-      
+
       return objectSchema;
     }
 
@@ -96,9 +102,11 @@ export function zodFromJsonSchema(schema: any): z.ZodTypeAny {
         const schemas = (schema.oneOf || schema.anyOf).map(zodFromJsonSchema);
         if (schemas.length === 0) return z.any();
         if (schemas.length === 1) return schemas[0];
-        return z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+        return z.union(
+          schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]],
+        );
       }
-      
+
       // Handle allOf
       if (schema.allOf) {
         const schemas = schema.allOf.map(zodFromJsonSchema);
@@ -108,7 +116,7 @@ export function zodFromJsonSchema(schema: any): z.ZodTypeAny {
         // For simplicity, we'll use intersection for object types
         return schemas.reduce((acc: any, curr: any) => acc.and(curr));
       }
-      
+
       return z.any();
   }
 }

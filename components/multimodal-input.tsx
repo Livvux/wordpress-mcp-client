@@ -63,6 +63,8 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const [isWordPressConnected, setIsWordPressConnected] = useState(false);
   const [wordPressSiteUrl, setWordPressSiteUrl] = useState('');
+  const [trialExpired, setTrialExpired] = useState(false);
+  const [trialUntil, setTrialUntil] = useState<string | null>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -114,6 +116,10 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
+    if (trialExpired) {
+      toast.error('Your free trial has ended. Please upgrade to continue.');
+      return;
+    }
     window.history.replaceState({}, '', `/chat/${chatId}`);
 
     sendMessage({
@@ -242,6 +248,21 @@ function PureMultimodalInput({
     checkConnection();
   }, []);
 
+  // Check trial status
+  useEffect(() => {
+    const checkTrial = async () => {
+      try {
+        const r = await fetch('/api/billing/trial');
+        if (r.ok) {
+          const j = await r.json();
+          setTrialExpired(!!j.expired);
+          setTrialUntil(j.trialUntil || null);
+        }
+      } catch {}
+    };
+    checkTrial();
+  }, []);
+
   return (
     <div className="relative w-full flex flex-col gap-4">
       <AnimatePresence>
@@ -359,9 +380,18 @@ function PureMultimodalInput({
             input={input}
             submitForm={submitForm}
             uploadQueue={uploadQueue}
+            disabled={trialExpired}
           />
         )}
       </div>
+
+      {trialExpired && (
+        <div className="mt-2 p-3 border rounded-lg bg-amber-50 text-amber-800 text-sm">
+          Free trial ended
+          {trialUntil ? ` on ${new Date(trialUntil).toLocaleString()}` : ''}.
+          Please upgrade to continue chatting.
+        </div>
+      )}
     </div>
   );
 }
@@ -434,10 +464,12 @@ function PureSendButton({
   submitForm,
   input,
   uploadQueue,
+  disabled,
 }: {
   submitForm: () => void;
   input: string;
   uploadQueue: Array<string>;
+  disabled?: boolean;
 }) {
   return (
     <Button
@@ -447,7 +479,7 @@ function PureSendButton({
         event.preventDefault();
         submitForm();
       }}
-      disabled={input.length === 0 || uploadQueue.length > 0}
+      disabled={disabled || input.length === 0 || uploadQueue.length > 0}
       type="button"
     >
       <ArrowUpIcon size={14} />

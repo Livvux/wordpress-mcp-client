@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     console.error('Error updating write mode:', error);
     return NextResponse.json(
       { error: 'Failed to update write mode' },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }

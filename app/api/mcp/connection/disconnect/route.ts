@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     console.error('Error disconnecting:', error);
     return NextResponse.json(
       { error: 'Failed to disconnect' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

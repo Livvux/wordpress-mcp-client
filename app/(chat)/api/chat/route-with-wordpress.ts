@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     // Load WordPress tools if connected
     let wordPressTools = {};
     let wpSystemPromptAddition = '';
-    
+
     if (wpBase && wpJwt) {
       try {
         wordPressTools = await loadWordPressTools({
@@ -168,14 +168,16 @@ export async function POST(request: Request) {
           jwt: wpJwt,
           writeMode: wpWriteMode,
         });
-        
+
         wpSystemPromptAddition = `
 
 You are connected to a WordPress site at ${wpBase}.
 Write Mode is ${wpWriteMode ? 'ENABLED' : 'DISABLED (read-only)'}.
-${wpWriteMode 
-  ? 'You can create, update, and delete content on the WordPress site.' 
-  : 'You can only read content from the WordPress site. Any write operations will be blocked.'}
+${
+  wpWriteMode
+    ? 'You can create, update, and delete content on the WordPress site.'
+    : 'You can only read content from the WordPress site. Any write operations will be blocked.'
+}
 
 When using WordPress tools:
 - Always confirm destructive actions with the user first
@@ -204,13 +206,15 @@ When using WordPress tools:
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }) + wpSystemPromptAddition,
+          system:
+            systemPrompt({ selectedChatModel, requestHints }) +
+            wpSystemPromptAddition,
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning'
               ? []
-              : Object.keys(allTools) as any[],
+              : (Object.keys(allTools) as any[]),
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: {
             ...allTools,
@@ -255,12 +259,12 @@ When using WordPress tools:
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       },
     });
   } catch (error) {
     console.error('Chat API error:', error);
-    
+
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

@@ -1,11 +1,17 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { 
-  type Session, 
-  type User, 
-  getBrowserSession, 
-  createBrowserSession, 
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  type Session,
+  type User,
+  getBrowserSession,
+  createBrowserSession,
 } from './session';
 
 interface AuthContextType {
@@ -25,12 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // First try to get browser session
       let browserSession = getBrowserSession();
-      
+
       // If no browser session exists, create one
       if (!browserSession) {
         browserSession = createBrowserSession();
       }
-      
+
       setSession(browserSession);
     } catch (error) {
       console.error('Failed to load session:', error);

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     if (!wpBase || !wpJwt) {
       return NextResponse.json(
         { error: 'WordPress not connected' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -26,13 +26,25 @@ export async function POST(request: Request) {
     const { name, arguments: args } = requestSchema.parse(body);
 
     // Check if this is a write operation and if write mode is enabled
-    const writeOperations = ['create', 'update', 'delete', 'edit', 'publish', 'trash'];
-    const isWriteOperation = writeOperations.some(op => name.toLowerCase().includes(op));
-    
+    const writeOperations = [
+      'create',
+      'update',
+      'delete',
+      'edit',
+      'publish',
+      'trash',
+    ];
+    const isWriteOperation = writeOperations.some((op) =>
+      name.toLowerCase().includes(op),
+    );
+
     if (isWriteOperation && !writeMode) {
       return NextResponse.json(
-        { error: 'Write mode is disabled. Enable it to perform write operations.' },
-        { status: 403 }
+        {
+          error:
+            'Write mode is disabled. Enable it to perform write operations.',
+        },
+        { status: 403 },
       );
     }
 
@@ -44,7 +56,7 @@ export async function POST(request: Request) {
     console.error('Error calling MCP tool:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to call tool' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

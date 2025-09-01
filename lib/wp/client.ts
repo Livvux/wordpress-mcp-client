@@ -27,17 +27,27 @@ export interface WPClientResult<T = any> {
 }
 
 export class WPClient {
-  constructor(private siteUrl: string, private jwt?: string) {}
+  constructor(
+    private siteUrl: string,
+    private jwt?: string,
+  ) {}
 
-  private async request<T = any>({ method, path, jwt, headers, body, idempotencyKey }: FetchOptions) {
+  private async request<T = any>({
+    method,
+    path,
+    jwt,
+    headers,
+    body,
+    idempotencyKey,
+  }: FetchOptions) {
     const base = this.siteUrl.replace(/\/$/, '');
     const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
     const h: Record<string, string> = {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       ...(headers || {}),
     };
     const token = jwt || this.jwt;
-    if (token) h['Authorization'] = `Bearer ${token}`;
+    if (token) h.Authorization = `Bearer ${token}`;
     if (idempotencyKey) h['Idempotency-Key'] = idempotencyKey;
     let bodyPayload: BodyInit | undefined;
     if (body && !(body instanceof FormData)) {
@@ -55,7 +65,9 @@ export class WPClient {
     });
     const text = await res.text();
     let data: any = undefined;
-    try { data = text ? JSON.parse(text) : undefined; } catch {}
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {}
     if (!res.ok) {
       const message = data?.message || res.statusText || 'WP request failed';
       return { ok: false as const, status: res.status, error: message, data };
@@ -69,7 +81,9 @@ export class WPClient {
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   }
 
-  async createPost(_input: WPCreatePostInput): Promise<WPClientResult<{ id: number; link?: string }>> {
+  async createPost(
+    _input: WPCreatePostInput,
+  ): Promise<WPClientResult<{ id: number; link?: string }>> {
     if (isOss) return { ok: false, error: 'Not available in OSS mode' };
     const payload: any = {
       title: _input.title,
@@ -79,7 +93,7 @@ export class WPClient {
     if (_input.categories) payload.categories = _input.categories;
     if (_input.tags) payload.tags = _input.tags;
 
-    const r = await this.request<{ id: number; link?: string}>({
+    const r = await this.request<{ id: number; link?: string }>({
       method: 'POST',
       path: '/wp-json/wp/v2/posts',
       body: payload,
@@ -88,7 +102,10 @@ export class WPClient {
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   }
 
-  async updatePost(_id: string, _input: WPUpdatePostInput): Promise<WPClientResult> {
+  async updatePost(
+    _id: string,
+    _input: WPUpdatePostInput,
+  ): Promise<WPClientResult> {
     if (isOss) return { ok: false, error: 'Not available in OSS mode' };
     const payload: any = { ..._input };
     const r = await this.request({
@@ -99,7 +116,9 @@ export class WPClient {
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   }
 
-  async uploadMedia(_file: File): Promise<WPClientResult<{ id: number; url: string }>> {
+  async uploadMedia(
+    _file: File,
+  ): Promise<WPClientResult<{ id: number; url: string }>> {
     if (isOss) return { ok: false, error: 'Not available in OSS mode' };
     const form = new FormData();
     form.append('file', _file);

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
@@ -41,28 +41,28 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
     aiConfig,
     wpConfig,
     validations,
-    
+
     // AI Config
     setProvider,
     setApiKey,
     setModel,
     setAIConfigValid,
-    
+
     // WP Config
     setSiteUrl,
     setJwtToken,
     setWriteMode,
     setWPConfigValid,
-    
+
     // Navigation
     nextStep,
     previousStep,
     goToStep,
-    
+
     // Validation
     canProceedFromStep1,
     canProceedFromStep2,
-    
+
     // Actions
     loadExistingConfig,
     completeOnboarding,
@@ -144,7 +144,9 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
                     {currentStep}
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-medium">{STEPS[currentStep - 1].title}</div>
+                    <div className="text-sm font-medium">
+                      {STEPS[currentStep - 1].title}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {STEPS[currentStep - 1].description}
                     </div>
@@ -152,7 +154,7 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
                 </motion.div>
               </AnimatePresence>
             </div>
-            
+
             <div className="max-w-md mx-auto">
               <Progress value={progress} className="h-1 [&>div]:bg-blue-600" />
               <div className="text-sm text-muted-foreground mt-2">
@@ -183,7 +185,7 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
                   onValidationChange={setAIConfigValid}
                 />
               )}
-              
+
               {currentStep === 2 && (
                 <WordPressSetup
                   siteUrl={wpConfig.siteUrl || ''}
@@ -195,21 +197,24 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
                   onValidationChange={setWPConfigValid}
                 />
               )}
-              
-              {currentStep === 3 && aiConfig.provider && aiConfig.model && wpConfig.siteUrl && (
-                <OnboardingComplete
-                  aiConfig={{
-                    provider: aiConfig.provider,
-                    apiKey: aiConfig.apiKey || '',
-                    model: aiConfig.model,
-                  }}
-                  wordpressConfig={{
-                    siteUrl: wpConfig.siteUrl,
-                    writeMode: wpConfig.writeMode || false,
-                  }}
-                  onBeginChat={handleComplete}
-                />
-              )}
+
+              {currentStep === 3 &&
+                aiConfig.provider &&
+                aiConfig.model &&
+                wpConfig.siteUrl && (
+                  <OnboardingComplete
+                    aiConfig={{
+                      provider: aiConfig.provider,
+                      apiKey: aiConfig.apiKey || '',
+                      model: aiConfig.model,
+                    }}
+                    wordpressConfig={{
+                      siteUrl: wpConfig.siteUrl,
+                      writeMode: wpConfig.writeMode || false,
+                    }}
+                    onBeginChat={handleComplete}
+                  />
+                )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -228,17 +233,14 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous
                   </Button>
-                  
+
                   <div className="flex space-x-2">
                     {allowSkip && (
                       <Button variant="ghost" onClick={handleSkip}>
                         Skip for now
                       </Button>
                     )}
-                    <Button
-                      onClick={handleNext}
-                      disabled={!canProceed()}
-                    >
+                    <Button onClick={handleNext} disabled={!canProceed()}>
                       Next
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>

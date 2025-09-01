@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
 
   if (!session) {
     const redirectUrl = encodeURIComponent(request.url);
-    
+
     // Redirect to guest auth to create session
     return NextResponse.redirect(
       new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url),

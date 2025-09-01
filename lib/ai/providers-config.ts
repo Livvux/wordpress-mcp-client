@@ -67,7 +67,8 @@ export const AI_PROVIDERS: AIProvider[] = [
       {
         id: 'claude-3-5-sonnet-20241022',
         name: 'Claude 3.5 Sonnet',
-        description: 'Most intelligent model, excellent for coding and analysis',
+        description:
+          'Most intelligent model, excellent for coding and analysis',
         contextWindow: '200K tokens',
       },
       {
@@ -216,14 +217,14 @@ export function getProviderConfig(providerId: string, apiKey: string) {
     case 'google':
       return { apiKey };
     case 'openrouter':
-      return { 
-        apiKey, 
-        baseURL: 'https://openrouter.ai/api/v1' 
+      return {
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
       };
     case 'deepseek':
-      return { 
-        apiKey, 
-        baseURL: 'https://api.deepseek.com' 
+      return {
+        apiKey,
+        baseURL: 'https://api.deepseek.com',
       };
     case 'xai':
       return { apiKey };
@@ -234,7 +235,7 @@ export function getProviderConfig(providerId: string, apiKey: string) {
 
 export function validateApiKey(providerId: string, apiKey: string): boolean {
   if (!apiKey || apiKey.trim().length === 0) return false;
-  
+
   switch (providerId) {
     case 'openai':
       return apiKey.startsWith('sk-') && apiKey.length > 20;
@@ -243,7 +244,10 @@ export function validateApiKey(providerId: string, apiKey: string): boolean {
     case 'google':
       return apiKey.startsWith('AI') && apiKey.length > 10;
     case 'openrouter':
-      return (apiKey.startsWith('sk-or-') || apiKey.startsWith('sk-')) && apiKey.length > 20;
+      return (
+        (apiKey.startsWith('sk-or-') || apiKey.startsWith('sk-')) &&
+        apiKey.length > 20
+      );
     case 'deepseek':
       return apiKey.startsWith('sk-') && apiKey.length > 20;
     case 'xai':
@@ -259,7 +263,9 @@ export interface AIConfiguration {
   model: string;
 }
 
-export async function saveAIConfiguration(config: AIConfiguration): Promise<void> {
+export async function saveAIConfiguration(
+  config: AIConfiguration,
+): Promise<void> {
   // Save to client-side storage if we're on the client
   if (typeof window !== 'undefined') {
     try {
@@ -298,7 +304,7 @@ export async function loadAIConfiguration(): Promise<AIConfiguration | null> {
       if (saved) {
         return JSON.parse(saved);
       }
-      
+
       // Fallback to localStorage (for migration purposes)
       saved = localStorage.getItem('ai-config');
       if (saved) {
@@ -308,10 +314,13 @@ export async function loadAIConfiguration(): Promise<AIConfiguration | null> {
         localStorage.removeItem('ai-config');
         return config;
       }
-      
+
       return null;
     } catch (error) {
-      console.warn('Failed to load AI configuration from client storage:', error);
+      console.warn(
+        'Failed to load AI configuration from client storage:',
+        error,
+      );
       return null;
     }
   }
@@ -321,7 +330,7 @@ export async function loadAIConfiguration(): Promise<AIConfiguration | null> {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     const aiConfigCookie = cookieStore.get('ai_config');
-    
+
     if (!aiConfigCookie?.value) {
       return null;
     }
@@ -340,7 +349,10 @@ export async function clearAIConfiguration(): Promise<void> {
       sessionStorage.removeItem('ai-config');
       localStorage.removeItem('ai-config'); // Also clear any old localStorage data
     } catch (error) {
-      console.warn('Failed to clear AI configuration from client storage:', error);
+      console.warn(
+        'Failed to clear AI configuration from client storage:',
+        error,
+      );
     }
   }
 
@@ -360,18 +372,22 @@ export async function clearAIConfiguration(): Promise<void> {
 
 // Get models for a provider, with optional dynamic fetching
 export async function getModelsForProvider(
-  providerId: string, 
+  providerId: string,
   apiKey?: string,
-  forceFetch = false
+  forceFetch = false,
 ): Promise<AIModel[]> {
-  const provider = AI_PROVIDERS.find(p => p.id === providerId);
-  
+  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
+
   if (!provider) {
     return [];
   }
 
   // If dynamic models are supported and API key is provided, fetch dynamically
-  if (provider.supportsDynamicModels && apiKey && (forceFetch || apiKey.length > 10)) {
+  if (
+    provider.supportsDynamicModels &&
+    apiKey &&
+    (forceFetch || apiKey.length > 10)
+  ) {
     try {
       const dynamicModels = await fetchModelsForProvider(providerId, apiKey);
       return dynamicModels.length > 0 ? dynamicModels : provider.models;

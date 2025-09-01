@@ -18,6 +18,15 @@ export async function getSession(): Promise<Session | null> {
   try {
     const session = JSON.parse(sessionCookie.value);
 
+    // Validate essential fields; if corrupted or missing, force new session
+    if (
+      !session ||
+      typeof session.userId !== 'string' ||
+      session.userId.length === 0
+    ) {
+      return null;
+    }
+
     if (!session.user) {
       session.user = {
         id: session.userId,
@@ -48,8 +57,7 @@ export async function createSession(
   const user: User = {
     id: userId,
     email: email || null,
-    name:
-      userType === 'guest' ? `Guest User` : email?.split('@')[0] || 'User',
+    name: userType === 'guest' ? `Guest User` : email?.split('@')[0] || 'User',
     image: null,
     type: userType,
   };
@@ -116,4 +124,3 @@ export function sessionToNextAuthSession(
 
   return { user };
 }
-

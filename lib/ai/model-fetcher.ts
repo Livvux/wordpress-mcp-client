@@ -13,31 +13,106 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 // Default models as fallback
 const DEFAULT_MODELS: Record<string, AIModel[]> = {
   openai: [
-    { id: 'gpt-4o', name: 'GPT-4o', description: 'Most capable model, great for complex tasks', contextWindow: '128K tokens' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Faster and more affordable GPT-4 level intelligence', contextWindow: '128K tokens' },
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and efficient for most tasks', contextWindow: '16K tokens' },
+    {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      description: 'Most capable model, great for complex tasks',
+      contextWindow: '128K tokens',
+    },
+    {
+      id: 'gpt-4o-mini',
+      name: 'GPT-4o Mini',
+      description: 'Faster and more affordable GPT-4 level intelligence',
+      contextWindow: '128K tokens',
+    },
+    {
+      id: 'gpt-3.5-turbo',
+      name: 'GPT-3.5 Turbo',
+      description: 'Fast and efficient for most tasks',
+      contextWindow: '16K tokens',
+    },
   ],
   anthropic: [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Most intelligent model, excellent for coding and analysis', contextWindow: '200K tokens' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Fastest model, great for quick tasks', contextWindow: '200K tokens' },
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      name: 'Claude 3.5 Sonnet',
+      description: 'Most intelligent model, excellent for coding and analysis',
+      contextWindow: '200K tokens',
+    },
+    {
+      id: 'claude-3-5-haiku-20241022',
+      name: 'Claude 3.5 Haiku',
+      description: 'Fastest model, great for quick tasks',
+      contextWindow: '200K tokens',
+    },
   ],
   google: [
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Most capable Gemini model with long context', contextWindow: '2M tokens' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast and efficient multimodal model', contextWindow: '1M tokens' },
+    {
+      id: 'gemini-1.5-pro',
+      name: 'Gemini 1.5 Pro',
+      description: 'Most capable Gemini model with long context',
+      contextWindow: '2M tokens',
+    },
+    {
+      id: 'gemini-1.5-flash',
+      name: 'Gemini 1.5 Flash',
+      description: 'Fast and efficient multimodal model',
+      contextWindow: '1M tokens',
+    },
   ],
   openrouter: [
-    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: '', contextWindow: '200K tokens' },
-    { id: 'openai/gpt-4o', name: 'GPT-4o', description: '', contextWindow: '128K tokens' },
-    { id: 'google/gemini-pro-1.5', name: 'Gemini Pro 1.5', description: '', contextWindow: '2M tokens' },
+    {
+      id: 'anthropic/claude-3.5-sonnet',
+      name: 'Claude 3.5 Sonnet',
+      description: '',
+      contextWindow: '200K tokens',
+    },
+    {
+      id: 'openai/gpt-4o',
+      name: 'GPT-4o',
+      description: '',
+      contextWindow: '128K tokens',
+    },
+    {
+      id: 'google/gemini-pro-1.5',
+      name: 'Gemini Pro 1.5',
+      description: '',
+      contextWindow: '2M tokens',
+    },
   ],
   deepseek: [
-    { id: 'deepseek-chat', name: 'DeepSeek Chat', description: 'General purpose conversational model', contextWindow: '32K tokens' },
-    { id: 'deepseek-coder', name: 'DeepSeek Coder', description: 'Specialized for coding tasks', contextWindow: '32K tokens' },
+    {
+      id: 'deepseek-chat',
+      name: 'DeepSeek Chat',
+      description: 'General purpose conversational model',
+      contextWindow: '32K tokens',
+    },
+    {
+      id: 'deepseek-coder',
+      name: 'DeepSeek Coder',
+      description: 'Specialized for coding tasks',
+      contextWindow: '32K tokens',
+    },
   ],
   xai: [
-    { id: 'grok-2-vision-1212', name: 'Grok 2 Vision', description: 'Latest Grok with vision capabilities', contextWindow: '128K tokens' },
-    { id: 'grok-2-1212', name: 'Grok 2', description: 'Latest Grok model for conversations', contextWindow: '128K tokens' },
-    { id: 'grok-3-mini-beta', name: 'Grok 3 Mini (Beta)', description: 'Compact beta version of Grok 3', contextWindow: '128K tokens' },
+    {
+      id: 'grok-2-vision-1212',
+      name: 'Grok 2 Vision',
+      description: 'Latest Grok with vision capabilities',
+      contextWindow: '128K tokens',
+    },
+    {
+      id: 'grok-2-1212',
+      name: 'Grok 2',
+      description: 'Latest Grok model for conversations',
+      contextWindow: '128K tokens',
+    },
+    {
+      id: 'grok-3-mini-beta',
+      name: 'Grok 3 Mini (Beta)',
+      description: 'Compact beta version of Grok 3',
+      contextWindow: '128K tokens',
+    },
   ],
 };
 
@@ -78,7 +153,7 @@ async function fetchOpenAIModels(apiKey: string): Promise<AIModel[]> {
   try {
     const response = await fetch('https://api.openai.com/v1/models', {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     });
@@ -92,10 +167,12 @@ async function fetchOpenAIModels(apiKey: string): Promise<AIModel[]> {
 
     const data = await response.json();
     const models = data.data as OpenAIModel[];
-    
+
     return models
-      .filter(model => model.id.startsWith('gpt-') || model.id.includes('o1-'))
-      .map(model => ({
+      .filter(
+        (model) => model.id.startsWith('gpt-') || model.id.includes('o1-'),
+      )
+      .map((model) => ({
         id: model.id,
         name: formatModelName(model.id),
         description: getModelDescription(model.id),
@@ -105,7 +182,10 @@ async function fetchOpenAIModels(apiKey: string): Promise<AIModel[]> {
   } catch (error) {
     console.error('Failed to fetch OpenAI models:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') || error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.openai;
@@ -140,14 +220,33 @@ async function fetchAnthropicModels(apiKey: string): Promise<AIModel[]> {
     // If we can make a request (even if it fails for other reasons), the API key is valid
     // Return the latest known models
     return [
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Most intelligent model, excellent for coding and analysis', contextWindow: '200K tokens' },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Fastest model, great for quick tasks', contextWindow: '200K tokens' },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Most powerful model for highly complex tasks', contextWindow: '200K tokens' },
+      {
+        id: 'claude-3-5-sonnet-20241022',
+        name: 'Claude 3.5 Sonnet',
+        description:
+          'Most intelligent model, excellent for coding and analysis',
+        contextWindow: '200K tokens',
+      },
+      {
+        id: 'claude-3-5-haiku-20241022',
+        name: 'Claude 3.5 Haiku',
+        description: 'Fastest model, great for quick tasks',
+        contextWindow: '200K tokens',
+      },
+      {
+        id: 'claude-3-opus-20240229',
+        name: 'Claude 3 Opus',
+        description: 'Most powerful model for highly complex tasks',
+        contextWindow: '200K tokens',
+      },
     ];
   } catch (error) {
     console.error('Failed to validate Anthropic API key:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') || error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.anthropic;
@@ -157,7 +256,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<AIModel[]> {
 // Google model fetching
 async function fetchGoogleModels(apiKey: string): Promise<AIModel[]> {
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+    );
 
     if (!response.ok) {
       if (response.status === 400 || response.status === 403) {
@@ -168,10 +269,10 @@ async function fetchGoogleModels(apiKey: string): Promise<AIModel[]> {
 
     const data = await response.json();
     const models = data.models as GoogleModel[];
-    
+
     return models
-      .filter(model => model.name.includes('gemini'))
-      .map(model => ({
+      .filter((model) => model.name.includes('gemini'))
+      .map((model) => ({
         id: model.name.replace('models/', ''),
         name: model.displayName || formatModelName(model.name),
         description: model.description || 'Google Gemini model',
@@ -181,7 +282,13 @@ async function fetchGoogleModels(apiKey: string): Promise<AIModel[]> {
   } catch (error) {
     console.error('Failed to fetch Google models:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('403') || error.message.includes('400') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') ||
+        error.message.includes('403') ||
+        error.message.includes('400') ||
+        error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.google;
@@ -193,7 +300,7 @@ async function fetchOpenRouterModels(apiKey: string): Promise<AIModel[]> {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/models', {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     });
@@ -207,10 +314,10 @@ async function fetchOpenRouterModels(apiKey: string): Promise<AIModel[]> {
 
     const data = await response.json();
     const models = data.data as OpenRouterModel[];
-    
+
     // Return ALL available models without filtering
     return models
-      .map(model => ({
+      .map((model) => ({
         id: model.id,
         name: model.name,
         description: '', // Remove description to make compact
@@ -220,7 +327,10 @@ async function fetchOpenRouterModels(apiKey: string): Promise<AIModel[]> {
   } catch (error) {
     console.error('Failed to fetch OpenRouter models:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') || error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.openrouter;
@@ -232,7 +342,7 @@ async function fetchDeepSeekModels(apiKey: string): Promise<AIModel[]> {
   try {
     const response = await fetch('https://api.deepseek.com/models', {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     });
@@ -246,9 +356,9 @@ async function fetchDeepSeekModels(apiKey: string): Promise<AIModel[]> {
 
     const data = await response.json();
     const models = data.data as OpenAIModel[];
-    
+
     return models
-      .map(model => ({
+      .map((model) => ({
         id: model.id,
         name: formatModelName(model.id),
         description: getModelDescription(model.id),
@@ -258,7 +368,10 @@ async function fetchDeepSeekModels(apiKey: string): Promise<AIModel[]> {
   } catch (error) {
     console.error('Failed to fetch DeepSeek models:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') || error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.deepseek;
@@ -270,7 +383,7 @@ async function fetchXAIModels(apiKey: string): Promise<AIModel[]> {
   try {
     const response = await fetch('https://api.x.ai/v1/models', {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     });
@@ -284,9 +397,9 @@ async function fetchXAIModels(apiKey: string): Promise<AIModel[]> {
 
     const data = await response.json();
     const models = data.data as OpenAIModel[];
-    
+
     return models
-      .map(model => ({
+      .map((model) => ({
         id: model.id,
         name: formatModelName(model.id),
         description: getModelDescription(model.id),
@@ -296,7 +409,10 @@ async function fetchXAIModels(apiKey: string): Promise<AIModel[]> {
   } catch (error) {
     console.error('Failed to fetch xAI models:', error);
     // Re-throw authentication errors instead of falling back
-    if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('401') || error.message.includes('Unauthorized'))
+    ) {
       throw error;
     }
     return DEFAULT_MODELS.xai;
@@ -304,7 +420,10 @@ async function fetchXAIModels(apiKey: string): Promise<AIModel[]> {
 }
 
 // Main function to fetch models for any provider
-export async function fetchModelsForProvider(providerId: string, apiKey: string): Promise<AIModel[]> {
+export async function fetchModelsForProvider(
+  providerId: string,
+  apiKey: string,
+): Promise<AIModel[]> {
   // Check cache first
   const cached = modelCache.get(`${providerId}_${apiKey.slice(-4)}`);
   if (cached && Date.now() - cached.timestamp < cached.expiresIn) {
@@ -312,7 +431,7 @@ export async function fetchModelsForProvider(providerId: string, apiKey: string)
   }
 
   let models: AIModel[];
-  
+
   switch (providerId) {
     case 'openai':
       models = await fetchOpenAIModels(apiKey);
@@ -350,7 +469,7 @@ export async function fetchModelsForProvider(providerId: string, apiKey: string)
 function formatModelName(id: string): string {
   return id
     .split(/[-_/]/)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
@@ -364,7 +483,7 @@ function getModelDescription(id: string): string {
     'deepseek-chat': 'General purpose conversational model',
     'deepseek-coder': 'Specialized for coding tasks',
   };
-  
+
   return descriptions[id] || 'AI language model';
 }
 
@@ -378,7 +497,7 @@ function getContextWindow(id: string): string {
     'deepseek-chat': '32K tokens',
     'deepseek-coder': '32K tokens',
   };
-  
+
   return contextWindows[id] || 'Unknown';
 }
 

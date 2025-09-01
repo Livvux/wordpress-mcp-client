@@ -1,19 +1,48 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle2, XCircle, Eye, EyeOff, ExternalLinkIcon, RefreshCw } from 'lucide-react';
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  EyeOff,
+  ExternalLinkIcon,
+  RefreshCw,
+} from 'lucide-react';
 import { ProviderCards } from '../provider-cards';
-import { AI_PROVIDERS, validateApiKey, getModelsForProvider, saveAIConfiguration } from '@/lib/ai/providers-config';
+import {
+  AI_PROVIDERS,
+  validateApiKey,
+  getModelsForProvider,
+  saveAIConfiguration,
+} from '@/lib/ai/providers-config';
 import type { AIModel } from '@/lib/ai/providers-config';
 // Remove AI SDK import since we'll use direct HTTP requests
 
-async function testApiConnection(providerId: string, apiKey: string, modelId: string): Promise<void> {
+async function testApiConnection(
+  providerId: string,
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
   switch (providerId) {
     case 'openai':
       await testOpenAIConnection(apiKey, modelId);
@@ -38,11 +67,14 @@ async function testApiConnection(providerId: string, apiKey: string, modelId: st
   }
 }
 
-async function testOpenAIConnection(apiKey: string, modelId: string): Promise<void> {
+async function testOpenAIConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -54,11 +86,17 @@ async function testOpenAIConnection(apiKey: string, modelId: string): Promise<vo
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `OpenAI API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
-async function testAnthropicConnection(apiKey: string, modelId: string): Promise<void> {
+async function testAnthropicConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -75,52 +113,76 @@ async function testAnthropicConnection(apiKey: string, modelId: string): Promise
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Anthropic API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `Anthropic API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
-async function testGoogleConnection(apiKey: string, modelId: string): Promise<void> {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+async function testGoogleConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'Hello' }] }],
+      }),
     },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: 'Hello' }] }],
-    }),
-  });
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Google API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `Google API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
-async function testOpenRouterConnection(apiKey: string, modelId: string): Promise<void> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+async function testOpenRouterConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_completion_tokens: 1,
+      }),
     },
-    body: JSON.stringify({
-      model: modelId,
-      messages: [{ role: 'user', content: 'Hello' }],
-      max_completion_tokens: 1,
-    }),
-  });
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `OpenRouter API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `OpenRouter API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
-async function testDeepSeekConnection(apiKey: string, modelId: string): Promise<void> {
+async function testDeepSeekConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
   const response = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -132,15 +194,21 @@ async function testDeepSeekConnection(apiKey: string, modelId: string): Promise<
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `DeepSeek API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `DeepSeek API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
-async function testXAIConnection(apiKey: string, modelId: string): Promise<void> {
+async function testXAIConnection(
+  apiKey: string,
+  modelId: string,
+): Promise<void> {
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -152,7 +220,10 @@ async function testXAIConnection(apiKey: string, modelId: string): Promise<void>
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `xAI API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      errorData.error?.message ||
+        `xAI API error: ${response.status} ${response.statusText}`,
+    );
   }
 }
 
@@ -182,7 +253,7 @@ export function ApiSetup({
   const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
-  const currentProvider = AI_PROVIDERS.find(p => p.id === selectedProvider);
+  const currentProvider = AI_PROVIDERS.find((p) => p.id === selectedProvider);
 
   // Load models when provider or API key changes
   useEffect(() => {
@@ -205,16 +276,18 @@ export function ApiSetup({
         // Check if this is an API key related error
         if (error instanceof Error && apiKey) {
           const message = error.message.toLowerCase();
-          if (message.includes('unauthorized') || 
-              message.includes('invalid api key') || 
-              message.includes('authentication') ||
-              message.includes('401') ||
-              message.includes('forbidden')) {
+          if (
+            message.includes('unauthorized') ||
+            message.includes('invalid api key') ||
+            message.includes('authentication') ||
+            message.includes('401') ||
+            message.includes('forbidden')
+          ) {
             setValidationError('Your API key is invalid, please check again.');
           }
         }
         // Fallback to static models
-        const provider = AI_PROVIDERS.find(p => p.id === selectedProvider);
+        const provider = AI_PROVIDERS.find((p) => p.id === selectedProvider);
         setAvailableModels(provider?.models || []);
       } finally {
         setIsLoadingModels(false);
@@ -251,7 +324,9 @@ export function ApiSetup({
     try {
       // Basic format validation
       if (!validateApiKey(selectedProvider, apiKey)) {
-        throw new Error('API key format is invalid. Please check your API key and try again.');
+        throw new Error(
+          'API key format is invalid. Please check your API key and try again.',
+        );
       }
 
       // Test the API with a direct HTTP request
@@ -268,31 +343,38 @@ export function ApiSetup({
       onValidationChange(true);
     } catch (error) {
       let errorMessage = 'Validation failed';
-      
+
       if (error instanceof Error) {
         const message = error.message.toLowerCase();
-        
+
         // Check for common API key related errors
-        if (message.includes('unauthorized') || 
-            message.includes('invalid api key') || 
-            message.includes('authentication') ||
-            message.includes('401') ||
-            message.includes('api key') ||
-            message.includes('forbidden') ||
-            message.includes('invalid_api_key')) {
+        if (
+          message.includes('unauthorized') ||
+          message.includes('invalid api key') ||
+          message.includes('authentication') ||
+          message.includes('401') ||
+          message.includes('api key') ||
+          message.includes('forbidden') ||
+          message.includes('invalid_api_key')
+        ) {
           errorMessage = 'Your API key is invalid, please check again.';
         } else if (message.includes('api key format is invalid')) {
           errorMessage = 'Your API key is invalid, please check again.';
-        } else if (message.includes('quota') || message.includes('rate limit')) {
-          errorMessage = 'API quota exceeded or rate limited. Please check your account.';
+        } else if (
+          message.includes('quota') ||
+          message.includes('rate limit')
+        ) {
+          errorMessage =
+            'API quota exceeded or rate limited. Please check your account.';
         } else if (message.includes('network') || message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
+          errorMessage =
+            'Network error. Please check your connection and try again.';
         } else {
           // Show the actual error for debugging
           errorMessage = error.message;
         }
       }
-      
+
       setValidationError(errorMessage);
       onValidationChange(false);
     } finally {
@@ -302,7 +384,7 @@ export function ApiSetup({
 
   const refreshModels = async () => {
     if (!selectedProvider || !apiKey) return;
-    
+
     setIsLoadingModels(true);
     try {
       const models = await getModelsForProvider(selectedProvider, apiKey, true); // Force fetch
@@ -313,11 +395,13 @@ export function ApiSetup({
       // Check if this is an API key related error
       if (error instanceof Error) {
         const message = error.message.toLowerCase();
-        if (message.includes('unauthorized') || 
-            message.includes('invalid api key') || 
-            message.includes('authentication') ||
-            message.includes('401') ||
-            message.includes('forbidden')) {
+        if (
+          message.includes('unauthorized') ||
+          message.includes('invalid api key') ||
+          message.includes('authentication') ||
+          message.includes('401') ||
+          message.includes('forbidden')
+        ) {
           setValidationError('Your API key is invalid, please check again.');
         }
       }
@@ -326,8 +410,10 @@ export function ApiSetup({
     }
   };
 
-  const canValidate = selectedProvider && apiKey && selectedModel && !isValidating;
-  const isConfigurationComplete = validationSuccess && selectedProvider && apiKey && selectedModel;
+  const canValidate =
+    selectedProvider && apiKey && selectedModel && !isValidating;
+  const isConfigurationComplete =
+    validationSuccess && selectedProvider && apiKey && selectedModel;
 
   return (
     <div className="space-y-6">
@@ -349,7 +435,9 @@ export function ApiSetup({
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <span>Configure {currentProvider.name}</span>
-              {validationSuccess && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+              {validationSuccess && (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              )}
             </CardTitle>
             <CardDescription>
               {currentProvider.setupInstructions}
@@ -375,12 +463,18 @@ export function ApiSetup({
                   size="icon"
                   onClick={() => setShowApiKey(!showApiKey)}
                 >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => window.open(currentProvider.websiteUrl, '_blank')}
+                  onClick={() =>
+                    window.open(currentProvider.websiteUrl, '_blank')
+                  }
                 >
                   <ExternalLinkIcon className="h-4 w-4" />
                 </Button>
@@ -392,7 +486,9 @@ export function ApiSetup({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Label htmlFor="model-select">Model</Label>
-                    {isLoadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    {isLoadingModels && (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
                     {currentProvider?.supportsDynamicModels && (
                       <span className="text-xs text-green-600 dark:text-green-400">
                         Auto-updated
@@ -408,24 +504,26 @@ export function ApiSetup({
                       disabled={isLoadingModels}
                       className="h-6 px-2"
                     >
-                      <RefreshCw className={`h-3 w-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`h-3 w-3 ${isLoadingModels ? 'animate-spin' : ''}`}
+                      />
                     </Button>
                   )}
                 </div>
-                <Select 
-                  value={selectedModel || ''} 
+                <Select
+                  value={selectedModel || ''}
                   onValueChange={onModelChange}
                   disabled={isLoadingModels || availableModels.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue 
+                    <SelectValue
                       placeholder={
-                        isLoadingModels 
-                          ? "Loading models..." 
+                        isLoadingModels
+                          ? 'Loading models...'
                           : availableModels.length === 0
-                          ? "No models available"
-                          : "Select a model"
-                      } 
+                            ? 'No models available'
+                            : 'Select a model'
+                      }
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -436,7 +534,8 @@ export function ApiSetup({
                             <span>{model.name}</span>
                             <span className="text-xs text-muted-foreground">
                               {model.description}
-                              {model.contextWindow && ` • ${model.contextWindow}`}
+                              {model.contextWindow &&
+                                ` • ${model.contextWindow}`}
                             </span>
                           </div>
                         ) : (
@@ -484,7 +583,8 @@ export function ApiSetup({
                   <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
                     <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                     <AlertDescription className="text-green-800 dark:text-green-200">
-                      Configuration validated successfully! You can now proceed to the next step.
+                      Configuration validated successfully! You can now proceed
+                      to the next step.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -494,13 +594,16 @@ export function ApiSetup({
         </Card>
       )}
 
-      {!isConfigurationComplete && selectedProvider && apiKey && selectedModel && (
-        <Alert>
-          <AlertDescription>
-            Please test your configuration before proceeding to the next step.
-          </AlertDescription>
-        </Alert>
-      )}
+      {!isConfigurationComplete &&
+        selectedProvider &&
+        apiKey &&
+        selectedModel && (
+          <Alert>
+            <AlertDescription>
+              Please test your configuration before proceeding to the next step.
+            </AlertDescription>
+          </Alert>
+        )}
     </div>
   );
 }

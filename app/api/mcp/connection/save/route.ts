@@ -28,12 +28,30 @@ export async function POST(request: Request) {
       writeMode: !!writeMode,
     });
 
-    return NextResponse.json({ success: true });
+    const res = NextResponse.json({ success: true });
+    try {
+      res.cookies.set('wp_base', siteUrl.replace(/\/$/, ''), {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      });
+      res.cookies.set('wp_jwt', jwtToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      });
+    } catch {}
+
+    return res;
   } catch (error) {
     console.error('Error saving connection:', error);
     return NextResponse.json(
       { error: 'Failed to save connection' },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }

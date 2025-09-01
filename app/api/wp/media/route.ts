@@ -9,9 +9,14 @@ export async function POST() {
   }
 
   if (isOss) {
-    return NextResponse.json({ ok: true, mode: 'oss', note: 'Stubbed media upload' }, { status: 200 });
+    return NextResponse.json(
+      { ok: true, mode: 'oss', note: 'Stubbed media upload' },
+      { status: 200 },
+    );
   }
 
-  return NextResponse.json({ ok: false, error: 'Not implemented' }, { status: 501 });
+  return NextResponse.json(
+    { ok: false, error: 'Not implemented' },
+    { status: 501 },
+  );
 }
-
