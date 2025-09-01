@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session-server';
 import { AUTH_ENABLED, isOss } from '@/lib/config';
 import { WPClient, type WPCreatePostInput } from '@/lib/wp/client';
+import { hasPremium } from '@/lib/premium';
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -24,11 +25,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing siteUrl/jwt' }, { status: 400 });
   }
 
-  const client = new WPClient(siteUrl, jwt);
+  const allowed = await hasPremium(session);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Payment required' }, { status: 402 });
+  }
+
+  const client = new WPClient(siteUrl, jwt || undefined);
   const result = await client.createPost(body);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
   return NextResponse.json({ ok: true, data: result.data }, { status: 201 });
 }
-

@@ -3,18 +3,25 @@ import { getSession } from '@/lib/session-server';
 import { AUTH_ENABLED, isOss } from '@/lib/config';
 import { WPClient, type WPUpdatePostInput } from '@/lib/wp/client';
 
-export async function PATCH(_request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session && AUTH_ENABLED) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // In a real impl, read JSON body: siteUrl, jwt, and fields to update.
-  // Skeleton returns not implemented in premium, stub in OSS.
+  const body = await request.json().catch(() => ({} as any));
   if (isOss) {
     return NextResponse.json({ ok: true, mode: 'oss', note: `Stubbed update for ${params.id}` }, { status: 200 });
   }
-
-  return NextResponse.json({ ok: false, error: 'Not implemented' }, { status: 501 });
+  const siteUrl = body.siteUrl;
+  const jwt = body.jwt;
+  if (!siteUrl || !jwt) {
+    return NextResponse.json({ error: 'Missing siteUrl/jwt' }, { status: 400 });
+  }
+  const client = new WPClient(siteUrl, jwt);
+  const result = await client.updatePost(params.id, body);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+  }
+  return NextResponse.json({ ok: true, data: result.data }, { status: 200 });
 }
-

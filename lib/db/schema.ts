@@ -133,9 +133,10 @@ export const wordpressConnection = pgTable(
   },
   (table) => {
     return {
-      // A user can have at most one active connection
-      userUnique: uniqueIndex('WordPressConnection_user_unique').on(
+      // A user can have multiple sites; enforce uniqueness per (user, siteUrl)
+      userSiteUnique: uniqueIndex('WordPressConnection_user_site_unique').on(
         table.userId,
+        table.siteUrl,
       ),
     };
   },
@@ -269,3 +270,32 @@ export const task = pgTable('Task', {
 });
 
 export type Task = InferSelectModel<typeof task>;
+
+// Subscriptions (Premium entitlements)
+export const subscription = pgTable(
+  'Subscription',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    userId: uuid('userId')
+      .notNull()
+      .references(() => user.id),
+    stripeCustomerId: text('stripeCustomerId'),
+    stripeSubscriptionId: text('stripeSubscriptionId'),
+    status: varchar('status', { length: 32 }).notNull().default('inactive'),
+    currentPeriodEnd: timestamp('currentPeriodEnd'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      customerUnique: uniqueIndex('Subscription_customer_unique').on(
+        table.stripeCustomerId,
+      ),
+      subUnique: uniqueIndex('Subscription_subscription_unique').on(
+        table.stripeSubscriptionId,
+      ),
+    };
+  },
+);
+
+export type Subscription = InferSelectModel<typeof subscription>;

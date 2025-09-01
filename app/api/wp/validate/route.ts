@@ -18,11 +18,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, mode: 'oss', note: 'Validation is a no-op in OSS mode' }, { status: 200 });
   }
 
-  const client = new WPClient(siteUrl, jwt);
+  const client = new WPClient(siteUrl, jwt || undefined);
   const result = await client.validate();
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
   return NextResponse.json({ ok: true }, { status: 200 });
 }
-

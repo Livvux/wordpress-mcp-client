@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Wifi, WifiOff, Eye, EyeOff, ExternalLinkIcon } from 'lucide-react';
-import { validateWordPressConnection } from '@/lib/mcp/client';
+import { validateWPConnection } from '@/lib/mcp/tools';
 
 interface WordPressSetupProps {
   siteUrl: string;
@@ -51,7 +51,8 @@ export function WordPressSetup({
     setConnectionSuccess(false);
 
     try {
-      const isValid = await validateWordPressConnection(siteUrl, jwtToken);
+      const resp = await validateWPConnection(siteUrl, jwtToken);
+      const isValid = !!resp?.ok;
       
       if (!isValid) {
         throw new Error('Failed to connect to WordPress site');
