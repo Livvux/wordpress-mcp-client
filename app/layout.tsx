@@ -44,7 +44,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Toaster position="top-center" />
           <SessionProvider>
-            <NextIntlClientProvider locale={locale} messages={messages} timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}>
+            <NextIntlClientProvider
+              locale={locale}
+              messages={messages}
+              timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+              now={new Date()}
+              formats={{}}
+            >
               {children}
             </NextIntlClientProvider>
           </SessionProvider>
