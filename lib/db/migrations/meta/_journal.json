@@ -57,6 +57,20 @@
       "when": 1756748351447,
       "tag": "0007_boring_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756804795604,
+      "tag": "0008_fuzzy_moondragon",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1756805578480,
+      "tag": "0009_ordinary_madripoor",
+      "breakpoints": true
     }
   ]
 }

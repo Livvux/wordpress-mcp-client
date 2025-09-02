@@ -7,15 +7,19 @@ export function AuthForm({
   action,
   children,
   defaultEmail = '',
+  autoFocusEmail = true,
+  className = '',
 }: {
   action: NonNullable<
     string | ((formData: FormData) => void | Promise<void>) | undefined
   >;
   children: React.ReactNode;
   defaultEmail?: string;
+  autoFocusEmail?: boolean;
+  className?: string;
 }) {
   return (
-    <Form action={action} className="flex flex-col gap-4 px-4 sm:px-16">
+    <Form action={action} className={`flex flex-col gap-4 ${className}`}>
       <div className="flex flex-col gap-2">
         <Label
           htmlFor="email"
@@ -32,7 +36,7 @@ export function AuthForm({
           placeholder="user@acme.com"
           autoComplete="email"
           required
-          autoFocus
+          autoFocus={autoFocusEmail}
           defaultValue={defaultEmail}
         />
       </div>

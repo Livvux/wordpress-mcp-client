@@ -310,7 +310,9 @@ export function WordPressConnection({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="jwt-token">{mode === 'plugin' ? 'JWT Token (WP Cursor)' : 'JWT Token'}</Label>
+              <Label htmlFor="jwt-token">
+                {mode === 'plugin' ? 'JWT Token (WP Cursor)' : 'JWT Token'}
+              </Label>
               <div className="flex gap-2">
                 <Input
                   id="jwt-token"

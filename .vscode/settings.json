@@ -1,5 +1,6 @@
 {
   "editor.formatOnSave": true,
+
   "[javascript]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
@@ -9,9 +10,35 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
+
   "typescript.tsdk": "node_modules/typescript/lib",
   "eslint.workingDirectories": [
     { "pattern": "app/*" },
     { "pattern": "packages/*" }
-  ]
+  ],
+
+  // Performance: weniger RAM/CPU
+  "editor.minimap.enabled": false,
+  "editor.smoothScrolling": false,
+  "editor.renderWhitespace": "none",
+  "editor.accessibilitySupport": "off",
+
+  // Explorer/Suche: node_modules & dist ignorieren
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.git": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.git": true
+  },
+
+  // TypeScript Server RAM limit
+  "typescript.tsserver.maxTsServerMemory": 2048,
+
+  // Telemetry aus
+  "telemetry.enableTelemetry": false,
+  "telemetry.enableCrashReporter": false
 }

@@ -1,67 +1,32 @@
-import {
-  customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from 'ai';
+import { customProvider, extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { xai } from '@ai-sdk/xai';
-import {
-  artifactModel,
-  chatModel,
-  reasoningModel,
-  titleModel,
-} from './models.test';
+import { artifactModel, chatModel, reasoningModel, titleModel } from './models.test';
 import { isTestEnvironment } from '../constants';
-import type { AIConfiguration } from './providers-config';
 
-function loadAIConfigurationSync(): AIConfiguration | null {
-  // Check if we're running on the client side
-  if (typeof window !== 'undefined') {
-    try {
-      // First try sessionStorage
-      let saved = sessionStorage.getItem('ai-config');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-
-      // Fallback to localStorage (for migration purposes)
-      saved = localStorage.getItem('ai-config');
-      if (saved) {
-        const config = JSON.parse(saved);
-        return config;
-      }
-
-      return null;
-    } catch (error) {
-      console.warn(
-        'Failed to load AI configuration from client storage:',
-        error,
-      );
-      return null;
-    }
-  }
-
-  // If on server side, try to use cookies synchronously
+// Strictly server/env-based sync loader; never reads client storage
+function loadAIConfigurationSync(): {
+  provider?: string;
+  apiKey?: string;
+  chatModel?: string;
+  reasoningModel?: string;
+} | null {
   try {
-    // Try to access cookies if available
     if (typeof process !== 'undefined' && process.env) {
-      // Check for environment variables as fallback
       const provider = process.env.AI_PROVIDER;
       const apiKey = process.env.AI_API_KEY;
-      const model = process.env.AI_MODEL;
-
-      if (provider && apiKey && model) {
-        return { provider, apiKey, model };
+      const chatModel = process.env.AI_CHAT_MODEL || process.env.AI_MODEL;
+      const reasoningModel = process.env.AI_REASONING_MODEL || undefined;
+      if (provider && apiKey && chatModel) {
+        return { provider, apiKey, chatModel, reasoningModel };
       }
     }
-
-    return null;
   } catch (error) {
-    console.warn('Failed to load AI configuration from server storage:', error);
-    return null;
+    console.warn('Failed to load AI configuration from environment:', error);
   }
+  return null;
 }
 
 function createDynamicProvider() {
@@ -76,11 +41,9 @@ function createDynamicProvider() {
     });
   }
 
-  // Load saved configuration from onboarding
+  // Env-based configuration only; no client-provided config
   const aiConfig = loadAIConfigurationSync();
-
   if (!aiConfig) {
-    // Fallback to environment-based configuration if no saved config
     return customProvider({
       languageModels: {
         'chat-model': xai('grok-2-vision-1212'),
@@ -132,18 +95,22 @@ function createDynamicProvider() {
       break;
   }
 
-  const mainModel = providerFunc(aiConfig.model);
-  const titleModelVar = providerFunc(aiConfig.model); // Use same model for titles
+  const chatModelEnv = aiConfig.chatModel!;
+  const reasoningModelEnv = aiConfig.reasoningModel;
+  const mainModel = providerFunc(chatModelEnv);
+  const titleModelVar = providerFunc(chatModelEnv);
 
   return customProvider({
     languageModels: {
       'chat-model': mainModel,
       'chat-model-reasoning':
-        aiConfig.provider === 'xai'
-          ? wrapLanguageModel({
-              model: providerFunc('grok-3-mini-beta'),
-              middleware: extractReasoningMiddleware({ tagName: 'think' }),
-            })
+        reasoningModelEnv
+          ? aiConfig.provider === 'xai'
+            ? wrapLanguageModel({
+                model: providerFunc(reasoningModelEnv),
+                middleware: extractReasoningMiddleware({ tagName: 'think' }),
+              })
+            : providerFunc(reasoningModelEnv)
           : mainModel,
       'title-model': titleModelVar,
       'artifact-model': mainModel,

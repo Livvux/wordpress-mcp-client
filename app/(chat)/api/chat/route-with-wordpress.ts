@@ -24,7 +24,11 @@ import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { loadWordPressTools } from '@/lib/ai/tools/wordpress-tools';
 import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
+import { customProvider } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { google } from '@ai-sdk/google';
+import { xai } from '@ai-sdk/xai';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
@@ -202,10 +206,107 @@ When using WordPress tools:
       ...wordPressTools,
     };
 
+    // Build provider from admin config or environment
+    async function buildProvider() {
+      let adminCfg: any = null;
+      try {
+        const { getGlobalAIConfig } = await import('@/lib/db/queries');
+        adminCfg = await getGlobalAIConfig();
+      } catch {}
+
+      if (adminCfg?.provider && (adminCfg as any)?.chatModel) {
+        const provider = adminCfg.provider as string;
+        const chatModelId = (adminCfg as any).chatModel as string;
+        const reasoningModelId = (adminCfg as any).reasoningModel || chatModelId;
+        let make: any = null;
+        switch (provider) {
+          case 'openai':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '' });
+            break;
+          case 'anthropic':
+            make = anthropic;
+            break;
+          case 'google':
+            make = google;
+            break;
+          case 'openrouter':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '', baseURL: 'https://openrouter.ai/api/v1' });
+            break;
+          case 'deepseek':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '', baseURL: 'https://api.deepseek.com' });
+            break;
+          case 'xai':
+          default:
+            make = xai;
+            break;
+        }
+        return customProvider({
+          languageModels: {
+            'chat-model': make(chatModelId),
+            'chat-model-reasoning': make(reasoningModelId),
+            'title-model': make(chatModelId),
+            'artifact-model': make(chatModelId),
+          },
+          imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+        });
+      }
+
+      // Env fallback
+      if (process.env.AI_PROVIDER && process.env.AI_API_KEY && process.env.AI_CHAT_MODEL) {
+        const provider = process.env.AI_PROVIDER;
+        const chatModelId = process.env.AI_CHAT_MODEL!;
+        const reasoningModelId = process.env.AI_REASONING_MODEL || chatModelId;
+        let make: any = null;
+        switch (provider) {
+          case 'openai':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY });
+            break;
+          case 'anthropic':
+            make = anthropic;
+            break;
+          case 'google':
+            make = google;
+            break;
+          case 'openrouter':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+            break;
+          case 'deepseek':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://api.deepseek.com' });
+            break;
+          case 'xai':
+          default:
+            make = xai;
+            break;
+        }
+        return customProvider({
+          languageModels: {
+            'chat-model': make(chatModelId),
+            'chat-model-reasoning': make(reasoningModelId),
+            'title-model': make(chatModelId),
+            'artifact-model': make(chatModelId),
+          },
+          imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+        });
+      }
+
+      // Defaults to xAI sensible presets
+      return customProvider({
+        languageModels: {
+          'chat-model': xai('grok-2-vision-1212'),
+          'chat-model-reasoning': xai('grok-3-mini-beta'),
+          'title-model': xai('grok-2-1212'),
+          'artifact-model': xai('grok-2-1212'),
+        },
+        imageModels: { 'small-model': xai.imageModel('grok-2-image') },
+      });
+    }
+
+    const dynamicProvider = await buildProvider();
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
+          model: dynamicProvider.languageModel(selectedChatModel),
           system:
             systemPrompt({ selectedChatModel, requestHints }) +
             wpSystemPromptAddition,

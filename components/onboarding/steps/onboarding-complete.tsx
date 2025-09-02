@@ -136,7 +136,7 @@ export function OnboardingComplete({
                 <Sparkles className="h-8 w-8" />
               </h2>
               <p className="text-muted-foreground mt-2">
-                Your wpAgentic instance is ready to go!
+                Your wpAgent instance is ready to go!
               </p>
             </motion.div>
           </motion.div>

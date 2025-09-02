@@ -1,32 +1,33 @@
-# wpAgentic – Empfehlungen & Umsetzungsplan
+# wpAgent – Empfehlungen & Umsetzungsplan
 
 Dieses Dokument sammelt Verbesserungen als prüfbare Checkliste. Wir arbeiten sie iterativ ab.
 
 ## 1) Authentifizierung vereinheitlichen
-- [ ] Entscheidung: Entweder NextAuth oder einfache Session als „Single Source of Truth“
-- [ ] Alle API‑Routen konsistent auf eine Auth‑Methode umstellen
-- [ ] Middleware anpassen (keine Redirects auf nicht existente Routen)
+- [x] Entscheidung: Einfache Session (`auth-simple`) als „Single Source of Truth“
+- [ ] Alle API‑Routen konsistent auf eine Auth‑Methode umstellen (einige Routen nutzen noch `getSession` direkt)
+- [x] Middleware anpassen (keine Redirects auf nicht existente Routen)
 - [ ] Tests aktualisieren (Routen‑Tests + e2e)
 
 ## 2) Secrets serverseitig speichern (statt Cookies)
-- [ ] DB‑Schema: Tabelle für User‑Integrationen (AI: provider/model/apiKey, WP: base/jwt/writeMode)
-- [ ] Verschlüsselung: AES‑GCM über `SESSION_SECRET`/`NEXTAUTH_SECRET`
-- [ ] API‑Routen `/api/ai/config` & `/api/mcp/connection/*` auf DB‑Speicherung umstellen
-- [ ] Migrationen + Zugriffsschicht (Drizzle) + Tests
+- [x] DB‑Schema: Tabelle für User‑Integrationen (AI: provider/model/apiKey, WP: base/jwt/writeMode)
+- [x] Verschlüsselung: AES‑GCM über `SESSION_SECRET`/`NEXTAUTH_SECRET` (siehe `lib/crypto.ts`)
+- [x] API‑Routen `/api/ai/config` & `/api/mcp/connection/*` auf DB‑Speicherung umstellen
+- [x] Migrationen + Zugriffsschicht (Drizzle) vorhanden; [ ] Tests
 
 ## 3) Session absichern
-- [ ] `mcp_session` signieren/verschlüsseln oder serverseitige Session verwenden
-- [ ] Einheitliches Session‑Handling in `lib/session.ts`
+- [x] `mcp_session` verschlüsseln (AES‑GCM); Middleware toleriert verschlüsseltes Cookie
+- [ ] Einheitliches Session‑Handling in `lib/session.ts` (Duplikate `lib/session.ts` vs. `lib/session-server.ts` konsolidieren)
 - [ ] Tests für Manipulation/Integrität
 
 ## 4) CSRF/Origin‑Schutz
-- [ ] Utility: Origin/Referer prüfen (allowlist, env‑gesteuert)
-- [ ] POST‑Routen härten (`/api/ai/config`, `/api/mcp/connection/*`, Tools‑Bridges)
+- [x] Utility: Origin/Referer prüfen (allowlist, env‑gesteuert) (`lib/security.ts`)
+- [x] POST‑Routen härten für `/api/ai/config` und `/api/mcp/connection/*`
+- [x] Tools‑Bridges härten (z. B. `/api/mcp/tools/*`, Files/Posts bridges)
 - [ ] E2E/Route‑Tests für valide/invalid Origins
 
 ## 5) AI‑Konfiguration zentralisieren
-- [ ] Doppelte Provider‑Erstellung entfernen (nur `lib/ai/providers-config.ts` nutzen)
-- [ ] Sensible Logs entfernen (nie API‑Key‑Teile loggen)
+- [ ] Doppelte Provider‑Erstellung entfernen (aktuell zusätzlich `lib/ai/providers.ts` env‑basiert)
+- [ ] Sensible Logs entfernen (z. B. keine JWT‑Präfixe in `lib/mcp/client.ts` loggen)
 - [ ] Einheitliche Fehlerbehandlung
 
 ## 6) Abhängigkeiten stabilisieren
@@ -53,10 +54,11 @@ Dieses Dokument sammelt Verbesserungen als prüfbare Checkliste. Wir arbeiten si
 ---
 
 ## Phase 1 – Quick Wins (Start)
-- [ ] Auth für `/api/(chat)/history` und `/api/(chat)/vote` auf `auth-simple` vereinheitlichen
-- [ ] Sensible Logs entfernen (API‑Key‑Präfix/Längen)
-- [ ] Backup‑Datei `app/(chat)/actions.ts.backup` löschen
-- [ ] Einfache Origin‑Checks für POST‑Routen (`/api/ai/config`, `/api/mcp/connection/*`)
+- [x] Auth für `/api/(chat)/history` und `/api/(chat)/vote` auf `auth-simple` vereinheitlichen
+- [ ] Sensible Logs entfernen (API‑Key/JWT‑Präfixe)
+- [x] Backup‑Datei `app/(chat)/actions.ts.backup` löschen (nicht vorhanden)
+- [x] Origin‑Checks für `/api/ai/config` und `/api/mcp/connection/*`
+- [ ] Origin‑Checks für Tools‑Bridges (`/api/mcp/tools/*`)
 
 ## Phase 2 – Serverseitige Speicherung
 - [ ] Migration + Tabellenmodell für Integrations‑Secrets
@@ -69,4 +71,3 @@ Dieses Dokument sammelt Verbesserungen als prüfbare Checkliste. Wir arbeiten si
 ## Phase 4 – Stabilisierung & Doku
 - [ ] Dependencies pinnen, CI grün
 - [ ] README/AGENTS um Security/Setup ergänzen
-

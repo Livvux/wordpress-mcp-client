@@ -13,43 +13,9 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
 
   useEffect(() => {
-    const checkOnboardingStatus = () => {
-      try {
-        // Check if onboarding was completed or skipped (use localStorage for persistent flags)
-        const isCompleted =
-          localStorage.getItem('onboarding-completed') === 'true';
-        const isSkipped = localStorage.getItem('onboarding-skipped') === 'true';
-
-        // Check if AI configuration exists in sessionStorage (primary) or localStorage (migration)
-        const hasSessionConfig = sessionStorage.getItem('ai-config') !== null;
-        const hasLocalConfig = localStorage.getItem('ai-config') !== null;
-        const hasAIConfig = hasSessionConfig || hasLocalConfig;
-
-        const needsOnboarding = !isCompleted && !isSkipped && !hasAIConfig;
-
-        if (needsOnboarding) {
-          setShouldShowOnboarding(true);
-          // Redirect to onboarding after a brief moment to avoid flash
-          setTimeout(() => {
-            router.push('/setup');
-          }, 100);
-        } else {
-          setShouldShowOnboarding(false);
-        }
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
-        // If there's an error accessing localStorage, assume onboarding is needed
-        setShouldShowOnboarding(true);
-        setTimeout(() => {
-          router.push('/setup');
-        }, 100);
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    // Run check after component mounts
-    checkOnboardingStatus();
+    // Admin-only configuration: disable client onboarding flow entirely
+    setShouldShowOnboarding(false);
+    setIsChecking(false);
   }, [router]);
 
   // Show loading state while checking
@@ -71,7 +37,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-2">
-          <h2 className="text-lg font-semibold">Setting up wpAgentic...</h2>
+          <h2 className="text-lg font-semibold">Setting up wpAgent...</h2>
           <p className="text-muted-foreground">Redirecting to setup wizard</p>
         </div>
       </div>

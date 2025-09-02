@@ -1,5 +1,5 @@
 === WP Cursor (Skeleton) ===
-Contributors: wpAgentic
+Contributors: wpAgent
 Requires at least: 6.1
 Tested up to: 6.6
 Stable tag: 0.1.0

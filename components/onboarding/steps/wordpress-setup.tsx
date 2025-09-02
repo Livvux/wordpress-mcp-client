@@ -179,7 +179,9 @@ export function WordPressSetup({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="jwt-token">{mode === 'plugin' ? 'JWT Token (WP Cursor)' : 'JWT Token'}</Label>
+            <Label htmlFor="jwt-token">
+              {mode === 'plugin' ? 'JWT Token (WP Cursor)' : 'JWT Token'}
+            </Label>
             <div className="flex space-x-2">
               <div className="relative flex-1">
                 <Input
@@ -283,7 +285,9 @@ export function WordPressSetup({
                     });
                     if (!resp.ok) {
                       const j = await resp.json().catch(() => ({}));
-                      throw new Error(j?.error || `Save failed (${resp.status})`);
+                      throw new Error(
+                        j?.error || `Save failed (${resp.status})`,
+                      );
                     }
                   } catch (e) {
                     setSaveError(
@@ -374,20 +378,26 @@ export function WordPressSetup({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <span className="text-sm">WP Cursor Plugin (this repo)</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    'https://github.com/your-org-or-repo/wpAgentic/tree/main/plugins/wp-cursor',
-                    '_blank',
-                  )
-                }
-              >
-                <ExternalLinkIcon className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm">WP Cursor Plugin (this SaaS)</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open('/releases/wp-cursor-0.1.0.zip', '_blank')
+                  }
+                >
+                  Download ZIP
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open('/admin/wp-plugin', '_blank')}
+                >
+                  Quick Onboarding via Plugin
+                </Button>
+              </div>
             </div>
           )}
           <div className="flex items-center justify-between">

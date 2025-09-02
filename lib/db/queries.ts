@@ -31,6 +31,8 @@ import {
   stream,
   aiIntegration,
   wordpressConnection,
+  subscription,
+  globalAIConfig,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -83,6 +85,33 @@ async function ensureDbReady(): Promise<void> {
     }
   })();
   return dbReadyPromise;
+}
+
+function isUuid(value: string): boolean {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+async function resolveUserIdToUuid(id: string): Promise<string> {
+  // If it's already a UUID, just return it
+  if (isUuid(id)) return id;
+
+  // Otherwise, try to resolve guest/legacy IDs stored as email to the DB user UUID
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, id))
+    .limit(1);
+
+  if (rows.length > 0) {
+    return rows[0].id as unknown as string;
+  }
+
+  throw new ChatSDKError(
+    'bad_request:database',
+    `Invalid user id format: ${id}`,
+  );
 }
 
 // Simplified user management - using session-based guest users
@@ -147,6 +176,90 @@ export async function createUser(email: string, password: string) {
   }
 }
 
+// Ensure a regular user exists for a given email and return it.
+// If the user does not exist, create one with a null password.
+export async function getOrCreateUserByEmail(email: string): Promise<User> {
+  try {
+    await ensureDbReady();
+    const _db = ensureDb();
+    const existing = await _db.select().from(user).where(eq(user.email, email));
+    if (existing.length > 0) {
+      return existing[0];
+    }
+
+    const [created] = await _db
+      .insert(user)
+      .values({ email, password: null })
+      .returning();
+    return created;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? 'Unknown error');
+    throw new ChatSDKError(
+      'bad_request:database',
+      `Failed to get or create user by email: ${message}`,
+    );
+  }
+}
+
+export async function getUserById(userId: string): Promise<User | null> {
+  try {
+    const _db = ensureDb();
+    const rows = await _db.select().from(user).where(eq(user.id, userId));
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to get user by id');
+  }
+}
+
+export async function updateUserPassword(userId: string, newPassword: string) {
+  try {
+    const _db = ensureDb();
+    const hashed = generateHashedPassword(newPassword);
+    await _db.update(user).set({ password: hashed }).where(eq(user.id, userId));
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to update user password',
+    );
+  }
+}
+
+export async function deleteUserAccountCascade(userId: string) {
+  try {
+    const _db = ensureDb();
+    // Delete votes/messages/streams/chats for user
+    const userChats = await _db
+      .select()
+      .from(chat)
+      .where(eq(chat.userId, userId));
+    const chatIds = userChats.map((c) => c.id);
+    if (chatIds.length > 0) {
+      await _db.delete(vote).where(inArray(vote.chatId, chatIds));
+      await _db.delete(message).where(inArray(message.chatId, chatIds));
+      await _db.delete(stream).where(inArray(stream.chatId, chatIds));
+      await _db.delete(chat).where(inArray(chat.id, chatIds));
+    }
+
+    // Delete suggestions authored by user
+    await _db.delete(suggestion).where(eq(suggestion.userId, userId));
+
+    // Delete documents by user
+    await _db.delete(document).where(eq(document.userId, userId));
+
+    // Delete integrations and connections
+    await _db.delete(aiIntegration).where(eq(aiIntegration.userId, userId));
+    await _db
+      .delete(wordpressConnection)
+      .where(eq(wordpressConnection.userId, userId));
+
+    // Finally delete user
+    await _db.delete(user).where(eq(user.id, userId));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to delete user');
+  }
+}
+
 export async function createGuestUser() {
   const email = `guest-${Date.now()}`;
   const password = generateHashedPassword(generateUUID());
@@ -166,6 +279,107 @@ export async function createGuestUser() {
 
 // Subscriptions
 // Subscription helpers are not included in OSS lite
+
+export async function hasActiveSubscription(userId: string): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({
+        status: subscription.status,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      })
+      .from(subscription)
+      .where(eq(subscription.userId, userId))
+      .limit(1);
+    if (rows.length === 0) return false;
+    const { status, currentPeriodEnd } = rows[0] as any;
+    const active = status === 'active';
+    const notExpired =
+      !currentPeriodEnd || new Date(currentPeriodEnd) > new Date();
+    return active && notExpired;
+  } catch {
+    return false;
+  }
+}
+
+// Global Admin AI Config
+export async function getGlobalAIConfig() {
+  try {
+    const rows = await db
+      .select({
+        id: globalAIConfig.id,
+        provider: globalAIConfig.provider,
+        model: globalAIConfig.model,
+        chatModel: globalAIConfig.chatModel,
+        reasoningModel: globalAIConfig.reasoningModel,
+        updatedAt: globalAIConfig.updatedAt,
+      })
+      .from(globalAIConfig)
+      .orderBy(desc(globalAIConfig.updatedAt))
+      .limit(1);
+    if (rows.length === 0) return null;
+    const row = rows[0] as any;
+    return {
+      id: row.id,
+      provider: row.provider,
+      // Backward compatibility: prefer chatModel, fall back to legacy model
+      chatModel: row.chatModel ?? row.model,
+      reasoningModel: row.reasoningModel ?? null,
+      model: row.model,
+      updatedAt: row.updatedAt,
+    };
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load global AI config',
+    );
+  }
+}
+
+export async function upsertGlobalAIConfig({
+  provider,
+  chatModel,
+  reasoningModel,
+}: { provider: string; chatModel: string; reasoningModel?: string | null }) {
+  try {
+    const existing = await db
+      .select({ id: globalAIConfig.id })
+      .from(globalAIConfig)
+      .orderBy(desc(globalAIConfig.updatedAt))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db
+        .update(globalAIConfig)
+        .set({
+          provider,
+          // keep legacy model in sync with chatModel for compatibility
+          model: chatModel,
+          chatModel,
+          reasoningModel: reasoningModel ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(globalAIConfig.id, existing[0].id));
+      return { provider, chatModel, reasoningModel: reasoningModel ?? null };
+    }
+
+    await db
+      .insert(globalAIConfig)
+      .values({
+        provider,
+        model: chatModel,
+        chatModel,
+        reasoningModel: reasoningModel ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    return { provider, chatModel, reasoningModel: reasoningModel ?? null };
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to save global AI config',
+    );
+  }
+}
 
 export async function saveChat({
   id,
@@ -222,6 +436,8 @@ export async function getChatsByUserId({
   endingBefore: string | null;
 }) {
   try {
+    // Normalize user id to UUID to avoid Postgres uuid casting errors
+    const userId = await resolveUserIdToUuid(id);
     const extendedLimit = limit + 1;
 
     const query = (whereCondition?: SQL<any>) =>
@@ -230,8 +446,8 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id),
+            ? and(whereCondition, eq(chat.userId, userId))
+            : eq(chat.userId, userId),
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -617,16 +833,27 @@ export async function upsertWordPressConnection({
 }) {
   try {
     const jwtEncrypted = encryptSecret(jwt);
-    const existing = await db
-      .select({ userId: wordpressConnection.userId })
+    const rows = await db
+      .select({ id: wordpressConnection.id })
       .from(wordpressConnection)
-      .where(eq(wordpressConnection.userId, userId));
+      .where(
+        and(
+          eq(wordpressConnection.userId, userId),
+          eq(wordpressConnection.siteUrl, siteUrl),
+        ),
+      )
+      .limit(1);
 
-    if (existing.length > 0) {
+    if (rows.length > 0) {
       await db
         .update(wordpressConnection)
-        .set({ siteUrl, jwtEncrypted, writeMode, updatedAt: new Date() })
-        .where(eq(wordpressConnection.userId, userId));
+        .set({ jwtEncrypted, writeMode, updatedAt: new Date() })
+        .where(
+          and(
+            eq(wordpressConnection.userId, userId),
+            eq(wordpressConnection.siteUrl, siteUrl),
+          ),
+        );
       return { userId, siteUrl, writeMode };
     }
 
@@ -643,6 +870,34 @@ export async function upsertWordPressConnection({
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to save WordPress connection',
+    );
+  }
+}
+
+export async function updateWordPressJwt({
+  userId,
+  siteUrl,
+  jwt,
+}: {
+  userId: string;
+  siteUrl: string;
+  jwt: string;
+}) {
+  try {
+    const jwtEncrypted = encryptSecret(jwt);
+    await db
+      .update(wordpressConnection)
+      .set({ jwtEncrypted, updatedAt: new Date(), lastUsedAt: new Date() })
+      .where(
+        and(
+          eq(wordpressConnection.userId, userId),
+          eq(wordpressConnection.siteUrl, siteUrl),
+        ),
+      );
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to update WordPress JWT',
     );
   }
 }
@@ -788,6 +1043,7 @@ export async function getMessageCountByUserId({
   differenceInHours,
 }: { id: string; differenceInHours: number }) {
   try {
+    const userId = await resolveUserIdToUuid(id);
     const twentyFourHoursAgo = new Date(
       Date.now() - differenceInHours * 60 * 60 * 1000,
     );
@@ -798,7 +1054,7 @@ export async function getMessageCountByUserId({
       .innerJoin(chat, eq(message.chatId, chat.id))
       .where(
         and(
-          eq(chat.userId, id),
+          eq(chat.userId, userId),
           gte(message.createdAt, twentyFourHoursAgo),
           eq(message.role, 'user'),
         ),

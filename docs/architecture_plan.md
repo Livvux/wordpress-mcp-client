@@ -251,6 +251,6 @@ MCP gives you a clean, extensible tool layer across ecosystems; the WP plugin pr
   - Signed append-only audit log (uploads/wpcursor/audit.log).
   - Admin console (Tools → WP Cursor) for scoped token issuance and audit view.
 - App (Next.js):
-  - MCP client wired; routes for tools list/call, posts list, logs tail, files.read (`/api/mcp/files/read`).
+  - MCP client wired; routes for tools list/call and posts list, plus files.read (`/api/mcp/files/read`). Logs tail bridge in App: pending.
+  - Internal REST for WordPress: `POST /api/wp/validate`, `POST /api/wp/posts`, `PATCH /api/wp/posts/:id`, `POST /api/wp/preview` (media upload pending).
 - Tools: repo skeletons under `tools/` for `wp-connector`, `wp-cli`, `git`, `lighthouse` (README placeholders).
-

@@ -30,7 +30,11 @@ export async function GET() {
         writeMode: !!writeMode,
       });
     } catch {
-      return NextResponse.json({ connected: false, siteUrl: null, writeMode: false });
+      return NextResponse.json({
+        connected: false,
+        siteUrl: null,
+        writeMode: false,
+      });
     }
   } catch (error) {
     console.error('Error checking connection status:', error);

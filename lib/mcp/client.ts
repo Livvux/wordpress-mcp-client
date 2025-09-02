@@ -58,9 +58,7 @@ export class MCPClient {
     console.log('MCP Request:', {
       endpoint,
       method,
-      requestBody: JSON.stringify(requestBody, null, 2),
       hasJwt: !!this.jwt,
-      jwtStart: `${this.jwt.substring(0, 20)}...`,
     });
 
     const response = await fetch(endpoint, {
@@ -76,7 +74,6 @@ export class MCPClient {
     console.log('MCP Response:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
     });
 
     if (!response.ok) {
@@ -95,7 +92,6 @@ export class MCPClient {
     }
 
     const data: MCPResponse<T> = await response.json();
-    console.log('MCP Response Data:', data);
 
     if (data.error) {
       throw new Error(data.error.message || 'MCP error occurred');
@@ -113,7 +109,7 @@ export class MCPClient {
         prompts: { get: {} },
       },
       clientInfo: {
-        name: 'wpAgentic',
+        name: 'wpAgent',
         version: '1.0.0',
       },
     });

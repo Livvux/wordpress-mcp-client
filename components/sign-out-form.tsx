@@ -8,12 +8,12 @@ export const SignOutForm = () => {
 
   const handleSignOut = async () => {
     try {
+      // Clear server session cookie
+      await fetch('/api/auth/logout', { method: 'POST' });
       // Clear browser session
       deleteBrowserSession();
-
-      // Redirect to home and refresh to create new session
-      router.push('/');
-      router.refresh();
+      // Hard reload to ensure middleware pathing is correct
+      window.location.href = '/';
     } catch (error) {
       console.error('Failed to sign out:', error);
     }

@@ -7,8 +7,8 @@ import './globals.css';
 import { SessionProvider } from '@/lib/auth-context';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://chat.vercel.ai'),
-  title: 'wpAgentic - Control Wordpress',
+  metadataBase: new URL('https://wpagent.app'),
+  title: 'wpAgent - Control WordPress',
   description: 'AI-powered WordPress management and control interface.',
 };
 

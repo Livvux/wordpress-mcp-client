@@ -467,3 +467,18 @@ export const job = pgTable(
 );
 
 export type Job = InferSelectModel<typeof job>;
+
+// Global Admin AI configuration (provider + model). API keys remain in env vars.
+export const globalAIConfig = pgTable('GlobalAIConfig', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  provider: varchar('provider', { length: 64 }).notNull(),
+  // Legacy single-model field (kept for backward compatibility/migrations)
+  model: varchar('model', { length: 128 }).notNull(),
+  // Admin-configured models
+  chatModel: varchar('chatModel', { length: 128 }),
+  reasoningModel: varchar('reasoningModel', { length: 128 }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export type GlobalAIConfig = InferSelectModel<typeof globalAIConfig>;

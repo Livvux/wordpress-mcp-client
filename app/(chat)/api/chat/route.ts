@@ -24,7 +24,8 @@ import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { loadWordPressTools } from '@/lib/ai/tools/wordpress-tools';
 import { firecrawlTools } from '@/lib/ai/tools/firecrawl-tools';
-import { isProductionEnvironment } from '@/lib/constants';
+import { isProductionEnvironment, isTestEnvironment } from '@/lib/constants';
+import { myProvider } from '@/lib/ai/providers';
 import type { AIConfiguration } from '@/lib/ai/providers-config';
 import { customProvider } from 'ai';
 import { openai, createOpenAI } from '@ai-sdk/openai';
@@ -44,7 +45,11 @@ import type { ChatMessage } from '@/lib/types';
 import { cookies } from 'next/headers';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
-import { getWordPressConnectionByUserId } from '@/lib/db/queries';
+import {
+  getWordPressConnectionByUserId,
+  hasActiveSubscription,
+  getLatestAIIntegrationByUserId,
+} from '@/lib/db/queries';
 import { BILLING_ENABLED, FREE_TRIAL_DAYS } from '@/lib/config';
 
 export const maxDuration = 60;
@@ -52,58 +57,148 @@ export const maxDuration = 60;
 let globalStreamContext: ResumableStreamContext | null = null;
 
 async function getDynamicProvider() {
-  // Try to load AI configuration from cookies
-  const cookieStore = await cookies();
-  const aiConfigCookie = cookieStore.get('ai_config');
-
-  console.log('[CHAT ROUTE] Cookie store contents:', {
-    aiConfigExists: !!aiConfigCookie,
-    cookieValue: aiConfigCookie?.value ? '[REDACTED]' : 'null',
-  });
-
-  let aiConfig: AIConfiguration | null = null;
-
-  if (aiConfigCookie?.value) {
-    try {
-      aiConfig = JSON.parse(aiConfigCookie.value);
-      console.log('[CHAT ROUTE] Parsed AI config:', {
-        provider: aiConfig?.provider,
-        model: aiConfig?.model,
-        hasApiKey: !!aiConfig?.apiKey,
-      });
-    } catch (error) {
-      console.warn('Failed to parse AI configuration from cookies:', error);
+  // In Playwright/test environment, use the mocked provider for determinism.
+  if (isTestEnvironment) {
+    return myProvider;
+  }
+  // Admin-first config: use global admin config from DB, then env-based fallback
+  let adminConfig: { provider: string; chatModel: string; reasoningModel?: string | null } | null = null;
+  try {
+    const { getGlobalAIConfig } = await import('@/lib/db/queries');
+    const globalCfg = await getGlobalAIConfig();
+    if (globalCfg?.provider && globalCfg?.chatModel) {
+      adminConfig = {
+        provider: globalCfg.provider,
+        chatModel: (globalCfg as any).chatModel,
+        reasoningModel: (globalCfg as any).reasoningModel ?? null,
+      };
     }
+  } catch (e) {
+    console.warn('[CHAT ROUTE] Failed to load global AI config:', e);
   }
 
-  if (!aiConfig) {
-    // Try DB-backed integration as fallback
-    try {
-      const authData = await auth();
-      if (authData?.user) {
-        const latest = await (
-          await import('@/lib/db/queries')
-        ).getLatestAIIntegrationByUserId(authData.user.id);
-        if (latest) {
-          aiConfig = {
-            provider: latest.provider as any,
-            apiKey: latest.apiKey,
-            model: latest.model,
-          } as any;
+    if (!adminConfig) {
+      // Environment-based fallback provider discovery
+      try {
+        if (process.env.AI_PROVIDER && process.env.AI_API_KEY && process.env.AI_CHAT_MODEL) {
+          const provider = process.env.AI_PROVIDER;
+          const chatModel = process.env.AI_CHAT_MODEL;
+          const reasoningModel = process.env.AI_REASONING_MODEL;
+          let make: any = null;
+          switch (provider) {
+            case 'openai':
+              make = createOpenAI({ apiKey: process.env.AI_API_KEY });
+              break;
+            case 'anthropic':
+              make = anthropic;
+              break;
+            case 'google':
+              make = google;
+              break;
+            case 'openrouter':
+              make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+              break;
+            case 'deepseek':
+              make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://api.deepseek.com' });
+              break;
+            case 'xai':
+            default:
+              make = xai;
+              break;
+          }
+          return customProvider({
+            languageModels: {
+              'chat-model': make(chatModel),
+              'chat-model-reasoning': reasoningModel ? make(reasoningModel) : make(chatModel),
+              'title-model': make(chatModel),
+              'artifact-model': make(chatModel),
+            },
+            imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+          });
         }
+        if (process.env.OPENAI_API_KEY) {
+          const prov = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          return customProvider({
+            languageModels: {
+              'chat-model': prov('gpt-4o-mini'),
+              'chat-model-reasoning': prov('gpt-4o-mini'),
+              'title-model': prov('gpt-4o-mini'),
+              'artifact-model': prov('gpt-4o-mini'),
+            },
+          });
+        }
+        if (process.env.ANTHROPIC_API_KEY) {
+          return customProvider({
+            languageModels: {
+              'chat-model': anthropic('claude-3-5-sonnet-latest'),
+              'chat-model-reasoning': anthropic('claude-3-5-sonnet-latest'),
+              'title-model': anthropic('claude-3-5-sonnet-latest'),
+              'artifact-model': anthropic('claude-3-5-sonnet-latest'),
+            },
+          });
+        }
+        if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+          return customProvider({
+            languageModels: {
+              'chat-model': google('gemini-1.5-pro'),
+              'chat-model-reasoning': google('gemini-1.5-pro'),
+              'title-model': google('gemini-1.5-pro'),
+              'artifact-model': google('gemini-1.5-pro'),
+            },
+          });
+        }
+        if (process.env.XAI_API_KEY) {
+          return customProvider({
+            languageModels: {
+              'chat-model': xai('grok-2-vision-1212'),
+              'chat-model-reasoning': xai('grok-3-mini-beta'),
+              'title-model': xai('grok-2-1212'),
+              'artifact-model': xai('grok-2-1212'),
+            },
+            imageModels: {
+              'small-model': xai.imageModel('grok-2-image'),
+            },
+          });
+        }
+        if (process.env.OPENROUTER_API_KEY) {
+          const prov = createOpenAI({
+            apiKey: process.env.OPENROUTER_API_KEY,
+            baseURL: 'https://openrouter.ai/api/v1',
+          });
+          return customProvider({
+            languageModels: {
+              'chat-model': prov('openrouter/auto'),
+              'chat-model-reasoning': prov('openrouter/auto'),
+              'title-model': prov('openrouter/auto'),
+              'artifact-model': prov('openrouter/auto'),
+            },
+          });
+        }
+        if (process.env.DEEPSEEK_API_KEY) {
+          const prov = createOpenAI({
+            apiKey: process.env.DEEPSEEK_API_KEY,
+            baseURL: 'https://api.deepseek.com',
+          });
+          return customProvider({
+            languageModels: {
+              'chat-model': prov('deepseek-chat'),
+              'chat-model-reasoning': prov('deepseek-chat'),
+              'title-model': prov('deepseek-chat'),
+              'artifact-model': prov('deepseek-chat'),
+            },
+          });
+        }
+      } catch (e) {
+        console.warn('[CHAT ROUTE] Env-based provider fallback failed:', e);
       }
-    } catch (e) {
-      console.warn('[CHAT ROUTE] Failed to load AI config from DB:', e);
-    }
 
-    if (!aiConfig) {
       console.log(
-        '[CHAT ROUTE] No AI config found, falling back to default xAI',
+        '[CHAT ROUTE] No AI config or env keys found; defaulting to xAI (may fail without key)',
       );
-      // Fallback to default xAI configuration
       return customProvider({
         languageModels: {
           'chat-model': xai('grok-2-vision-1212'),
+          'chat-model-reasoning': xai('grok-3-mini-beta'),
           'title-model': xai('grok-2-1212'),
           'artifact-model': xai('grok-2-1212'),
         },
@@ -112,114 +207,44 @@ async function getDynamicProvider() {
         },
       });
     }
+
+  if (adminConfig) {
+    // Create provider based on admin configuration
+    console.log('[CHAT ROUTE] Creating provider for admin config:', adminConfig.provider);
+    let make: any = null;
+    switch (adminConfig.provider) {
+      case 'openai':
+        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '' });
+        break;
+      case 'anthropic':
+        make = anthropic;
+        break;
+      case 'google':
+        make = google;
+        break;
+      case 'openrouter':
+        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '', baseURL: 'https://openrouter.ai/api/v1' });
+        break;
+      case 'deepseek':
+        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '', baseURL: 'https://api.deepseek.com' });
+        break;
+      case 'xai':
+      default:
+        make = xai;
+        break;
+    }
+    const chatModelId = adminConfig.chatModel;
+    const reasoningModelId = adminConfig.reasoningModel || adminConfig.chatModel;
+    return customProvider({
+      languageModels: {
+        'chat-model': make(chatModelId),
+        'chat-model-reasoning': make(reasoningModelId),
+        'title-model': make(chatModelId),
+        'artifact-model': make(chatModelId),
+      },
+      imageModels: adminConfig.provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+    });
   }
-
-  // Create provider based on configuration
-  console.log('[CHAT ROUTE] Creating provider for:', aiConfig.provider);
-
-  let mainModel: any;
-
-  switch (aiConfig.provider) {
-    case 'openai':
-      console.log('[CHAT ROUTE] Configuring OpenAI');
-      try {
-        const openaiProvider = createOpenAI({
-          apiKey: aiConfig.apiKey,
-        });
-        mainModel = openaiProvider(aiConfig.model);
-        console.log('[CHAT ROUTE] OpenAI model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating OpenAI model:', error);
-        throw error;
-      }
-      break;
-    case 'anthropic':
-      console.log(
-        '[CHAT ROUTE] Configuring Anthropic with model:',
-        aiConfig.model,
-      );
-      try {
-        mainModel = anthropic(aiConfig.model);
-        console.log('[CHAT ROUTE] Anthropic model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating Anthropic model:', error);
-        throw error;
-      }
-      break;
-    case 'google':
-      console.log(
-        '[CHAT ROUTE] Configuring Google with model:',
-        aiConfig.model,
-      );
-      try {
-        mainModel = google(aiConfig.model);
-        console.log('[CHAT ROUTE] Google model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating Google model:', error);
-        throw error;
-      }
-      break;
-    case 'openrouter':
-      console.log('[CHAT ROUTE] Configuring OpenRouter');
-      try {
-        // Try the simpler approach first
-        mainModel = openai(aiConfig.model);
-        console.log('[CHAT ROUTE] OpenRouter model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating OpenRouter model:', error);
-        console.error(
-          '[CHAT ROUTE] Full error details:',
-          JSON.stringify(error, null, 2),
-        );
-        throw error;
-      }
-      break;
-    case 'deepseek':
-      console.log(
-        '[CHAT ROUTE] Configuring DeepSeek with model:',
-        aiConfig.model,
-      );
-      try {
-        const deepSeekProvider = createOpenAI({
-          apiKey: aiConfig.apiKey,
-          baseURL: 'https://api.deepseek.com',
-        });
-        mainModel = deepSeekProvider(aiConfig.model);
-        console.log('[CHAT ROUTE] DeepSeek model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating DeepSeek model:', error);
-        throw error;
-      }
-      break;
-    case 'xai':
-    default:
-      console.log('[CHAT ROUTE] Configuring xAI with model:', aiConfig.model);
-      try {
-        mainModel = xai(aiConfig.model);
-        console.log('[CHAT ROUTE] xAI model created successfully');
-      } catch (error) {
-        console.error('[CHAT ROUTE] Error creating xAI model:', error);
-        throw error;
-      }
-      break;
-  }
-
-  console.log(
-    '[CHAT ROUTE] Model configured successfully for:',
-    aiConfig.provider,
-  );
-
-  return customProvider({
-    languageModels: {
-      'chat-model': mainModel,
-      'title-model': mainModel,
-      'artifact-model': mainModel,
-    },
-    imageModels:
-      aiConfig.provider === 'xai'
-        ? { 'small-model': xai.imageModel('grok-2-image') }
-        : undefined,
-  });
 }
 
 export function getStreamContext() {
@@ -269,6 +294,79 @@ export async function POST(request: Request) {
 
     if (!authData?.user) {
       return new ChatSDKError('unauthorized:chat').toResponse();
+    }
+
+    // Enforce clear separation of modes:
+    // - Guest (not logged-in regular): must provide own API key via ai_config cookie
+    // - Logged-in with active membership: can use global admin model (env keys)
+    // - Logged-in without membership: must provide own key (cookie or saved integration); no env fallback
+
+    const isRegularUser = authData.session.userType === 'regular';
+    const cookieStoreForAuth = await cookies();
+    const aiConfigCookie = cookieStoreForAuth.get('ai_config');
+
+    let isMember = false;
+    if (isRegularUser) {
+      try {
+        isMember = await hasActiveSubscription(authData.user.id);
+      } catch (_) {
+        isMember = false;
+      }
+    }
+
+    if (!isRegularUser) {
+      // Guest mode strictly requires client-provided API key
+      if (!aiConfigCookie?.value) {
+        return new Response(
+          JSON.stringify({
+            error: 'api_key_required',
+            message:
+              'Bitte hinterlege einen eigenen AI API-Schlüssel in den Einstellungen, um als Gast chatten zu können.',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      try {
+        const cfg = JSON.parse(aiConfigCookie.value);
+        if (!cfg?.apiKey || !cfg?.provider || !cfg?.model) {
+          return new Response(
+            JSON.stringify({
+              error: 'api_key_required',
+              message:
+                'Ungültige AI-Konfiguration. Bitte Provider, Modell und API-Schlüssel hinterlegen.',
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+      } catch {
+        return new Response(
+          JSON.stringify({
+            error: 'api_key_required',
+            message:
+              'AI-Konfiguration konnte nicht gelesen werden. Bitte erneut speichern.',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+    } else if (!isMember) {
+      // Regular user without membership: require either cookie or a saved integration
+      let hasDbIntegration = false;
+      try {
+        const latest = await getLatestAIIntegrationByUserId(authData.user.id);
+        hasDbIntegration = !!latest;
+      } catch {
+        hasDbIntegration = false;
+      }
+      if (!aiConfigCookie?.value && !hasDbIntegration) {
+        return new Response(
+          JSON.stringify({
+            error: 'api_key_required',
+            message:
+              'Bitte hinterlege einen eigenen AI API-Schlüssel (Cookie oder gespeicherte Integration), da keine Mitgliedschaft aktiv ist.',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
     // Monetization gate: simple 3-day free trial, then require upgrade

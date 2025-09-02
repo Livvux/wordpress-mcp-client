@@ -3,7 +3,7 @@
 import { z } from 'zod';
 
 import { createUser, getUser } from '@/lib/db/queries';
-import { createSession } from '@/lib/session-server';
+import { createSessionForUser } from '@/lib/session-server';
 
 import { signIn } from './auth';
 
@@ -31,8 +31,11 @@ export const login = async (
       password: validatedData.password,
       redirect: false,
     });
-    // Create our own session cookie for middleware/UI coherence
-    await createSession('regular', validatedData.email);
+    // Create our own session cookie bound to DB user id
+    const users = await getUser(validatedData.email);
+    if (users.length > 0) {
+      await createSessionForUser(users[0].id, 'regular', validatedData.email);
+    }
     return { status: 'success' };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -69,8 +72,11 @@ export const register = async (
       return { status: 'user_exists' } as RegisterActionState;
     }
     await createUser(validatedData.email, validatedData.password);
-    // Initialize a regular session cookie so middleware allows access
-    await createSession('regular', validatedData.email);
+    // Load created user to get id and bind session to it
+    const users = await getUser(validatedData.email);
+    if (users.length > 0) {
+      await createSessionForUser(users[0].id, 'regular', validatedData.email);
+    }
     return { status: 'success' } as RegisterActionState;
   } catch (error) {
     if (error instanceof z.ZodError) {

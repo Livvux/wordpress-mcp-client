@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session-server';
-import { AUTH_ENABLED, isOss } from '@/lib/config';
+import { AUTH_ENABLED } from '@/lib/config';
+
+function basicSanitize(html: string): string {
+  // extremely conservative: strip <script> and on* attributes
+  let out = html.replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script>/gi, '');
+  out = out.replace(/ on[a-z]+\s*=\s*"[^"]*"/gi, '');
+  out = out.replace(/ on[a-z]+\s*=\s*'[^']*'/gi, '');
+  out = out.replace(/ on[a-z]+\s*=\s*[^\s>]+/gi, '');
+  return out;
+}
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -13,16 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing content' }, { status: 400 });
   }
 
-  if (isOss) {
-    return NextResponse.json(
-      { ok: true, mode: 'oss', preview: { html: content } },
-      { status: 200 },
-    );
-  }
-
-  // TODO: run server-side rendering/validation (links, schema.org)
+  const sanitized = basicSanitize(String(content));
+  // In OSS and Premium alike, provide a lightweight preview response.
+  // Deeper SSR/validation (links, schema.org) can extend this endpoint later.
   return NextResponse.json(
-    { ok: false, error: 'Not implemented' },
-    { status: 501 },
+    { ok: true, preview: { html: sanitized } },
+    { status: 200 },
   );
 }

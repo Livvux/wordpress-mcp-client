@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform wpAgentic into a WordPress Growth Strategist by adding AI-powered content strategy capabilities. This feature will analyze existing content performance, identify gaps vs competitors, and generate data-driven content recommendations.
+Transform wpAgent into a WordPress Growth Strategist by adding AI-powered content strategy capabilities. This feature will analyze existing content performance, identify gaps vs competitors, and generate data-driven content recommendations.
 
 ## Phase 1: Firecrawl v2 Integration
 
@@ -306,6 +306,6 @@ export const contentStrategyTools = {
 
 ## Conclusion
 
-This Content Strategy AI implementation will transform wpAgentic from a WordPress assistant into a comprehensive growth strategist. The integration of Firecrawl v2 enables powerful competitor analysis and content research capabilities, while the AI-driven strategy generation provides actionable insights for WordPress site growth.
+This Content Strategy AI implementation will transform wpAgent from a WordPress assistant into a comprehensive growth strategist. The integration of Firecrawl v2 enables powerful competitor analysis and content research capabilities, while the AI-driven strategy generation provides actionable insights for WordPress site growth.
 
 The modular architecture allows for incremental implementation and future enhancements, ensuring the system can evolve with user needs and technological advances.

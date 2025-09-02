@@ -133,6 +133,12 @@ export class ChatPage {
   }
 
   async getRecentAssistantMessage() {
+    // Ensure at least one assistant message is present before proceeding
+    await this.page
+      .getByTestId('message-assistant')
+      .first()
+      .waitFor({ state: 'visible' });
+
     const messageElements = await this.page
       .getByTestId('message-assistant')
       .all();

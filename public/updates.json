@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "downloadUrl": "/releases/wp-cursor-0.1.0.zip",
+  "checksum": "fd5df139ae17eb1250ce19c580d55c24d71427b61f65d522fee2f4a40a4efee8",
+  "minAppVersion": "0.1.0",
+  "requires": "6.1",
+  "tested": "6.6",
+  "changelog": "Initial skeleton with read-only MCP tools and admin console."
+}

@@ -1,4 +1,4 @@
-<h1 align="center">wpAgentic — OSS (Lite)</h1>
+<h1 align="center">wpAgent — OSS (Lite)</h1>
 
 Self‑hostable Chat UI to assist with WordPress via MCP (Model Context Protocol). This OSS edition runs without database or authentication, keeps sessions local in the browser, and integrates with a WordPress MCP plugin for actions.
 

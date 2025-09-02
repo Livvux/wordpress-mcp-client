@@ -6,6 +6,7 @@ import type { User } from '@/lib/session';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { WordPressIcon } from './icons/wordpress-icon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -192,9 +193,17 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   if (hasEmptyChatHistory) {
     return (
       <SidebarGroup>
-        <SidebarGroupContent>
-          <div className="px-2 text-zinc-500 w-full flex flex-row justify-center items-center text-sm gap-2">
-            Your conversations will appear here once you start chatting!
+        <SidebarGroupContent className="h-full">
+          <div className="w-full h-full flex items-center overflow-hidden">
+            <div className="px-2 text-zinc-500 text-sm">
+              <div className="mb-2 text-black dark:text-white opacity-80">
+                <WordPressIcon size={24} />
+              </div>
+              <div>
+                Start chatting with your WordPress site.
+                Ask, manage, and update — all here.
+              </div>
+            </div>
           </div>
         </SidebarGroupContent>
       </SidebarGroup>

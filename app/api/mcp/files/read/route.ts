@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { MCPClient } from '@/lib/mcp/client';
+import { isAllowedOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
+    }
     const cookieStore = await cookies();
     const wpBase = cookieStore.get('wp_base')?.value;
     const wpJwt = cookieStore.get('wp_jwt')?.value;

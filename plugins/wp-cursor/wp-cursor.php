@@ -3,7 +3,7 @@
 Plugin Name: WP Cursor
 Description: Minimal skeleton for WP Cursor REST API (Phase 1, read-only). Provides health, auth token stub, posts list, and logs tail (SSE) endpoints under /wp-json/wpcursor/v1.
 Version: 0.1.0
-Author: wpAgentic
+Author: wpAgent
 Requires PHP: 8.1
 */
 
@@ -15,7 +15,19 @@ class WPCursor_Plugin {
     const PROTOCOL_VERSION = '2024-11-05';
     const REST_SCHEMA_VERSION = '1.0.0';
     const TOOLS_VERSION = '0.1.0';
-    const UPDATE_MANIFEST_URL = 'https://updates.example.com/wp-cursor/updates.json';
+    const UPDATE_MANIFEST_URL = 'https://wpagent.app/updates.json';
+
+    private function update_manifest_url() {
+        if (defined('WPCURSOR_UPDATE_URL') && WPCURSOR_UPDATE_URL) {
+            return (string) WPCURSOR_UPDATE_URL;
+        }
+        /**
+         * Filter the update manifest URL used by WP Cursor.
+         *
+         * @param string $url
+         */
+        return apply_filters('wpcursor_update_manifest_url', self::UPDATE_MANIFEST_URL);
+    }
 
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
@@ -71,6 +83,88 @@ class WPCursor_Plugin {
         $sig = hash_hmac('sha256', $prevSig . '|' . $payload, $secret);
         $record = array_merge($entry, ['sig' => $sig, 'prev' => $prevSig]);
         file_put_contents($path, wp_json_encode($record) . "\n", FILE_APPEND | LOCK_EX);
+    }
+
+    private function get_refresh_tokens_meta_key() {
+        return '_wpcursor_refresh_tokens';
+    }
+
+    private function load_refresh_tokens($user_id) {
+        $tokens = get_user_meta($user_id, $this->get_refresh_tokens_meta_key(), true);
+        if (!is_array($tokens)) $tokens = [];
+        // prune expired
+        $now = time();
+        $changed = false;
+        $kept = [];
+        foreach ($tokens as $t) {
+            $exp = isset($t['exp']) ? (int)$t['exp'] : 0;
+            if ($exp > 0 && $exp < $now) { $changed = true; continue; }
+            $kept[] = $t;
+        }
+        if ($changed) {
+            update_user_meta($user_id, $this->get_refresh_tokens_meta_key(), $kept);
+        }
+        return $kept;
+    }
+
+    private function save_refresh_tokens($user_id, array $tokens) {
+        update_user_meta($user_id, $this->get_refresh_tokens_meta_key(), $tokens);
+    }
+
+    private function create_refresh_token($user_id, array $scopes, $days = 30, $origin = '') {
+        $token = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $token);
+        $now = time();
+        $exp = $now + max(86400, (int)$days * 86400);
+        $entry = [
+            'hash' => $tokenHash,
+            'scopes' => array_values(array_unique(array_map('strval', $scopes))),
+            'origin' => (string)$origin,
+            'iat' => $now,
+            'exp' => $exp,
+            'rot' => 0,
+        ];
+        $tokens = $this->load_refresh_tokens($user_id);
+        $tokens[] = $entry;
+        $this->save_refresh_tokens($user_id, $tokens);
+        $this->audit_append('token.refresh.issue', [ 'user' => (int)$user_id, 'scopes' => $entry['scopes'], 'exp' => $exp, 'origin' => $origin ]);
+        // Return the raw token to the caller once; do not persist raw token
+        return array_merge($entry, [ 'token' => $token ]);
+    }
+
+    private function exchange_refresh_token($refresh_token, $origin = '') {
+        $users = get_users([ 'meta_key' => $this->get_refresh_tokens_meta_key(), 'fields' => ['ID'] ]);
+        foreach ($users as $u) {
+            $uid = (int)$u->ID;
+            $tokens = $this->load_refresh_tokens($uid);
+            foreach ($tokens as $idx => $t) {
+                $providedHash = hash('sha256', (string)$refresh_token);
+                if (!hash_equals((string)($t['hash'] ?? ''), $providedHash)) continue;
+                // origin strict-check: require equality when present
+                if (!empty($t['origin']) && is_string($origin) && (string)$origin !== (string)$t['origin']) {
+                    return new WP_Error('invalid_grant', 'Origin mismatch');
+                }
+                $now = time();
+                $exp = isset($t['exp']) ? (int)$t['exp'] : 0;
+                if ($exp > 0 && $exp <= $now) return new WP_Error('invalid_grant', 'Refresh token expired');
+                $scopes = isset($t['scopes']) && is_array($t['scopes']) ? $t['scopes'] : ['posts:read'];
+                // Issue short-lived access token (~15 min) and always rotate refresh (one-time use)
+                $accessClaims = [
+                    'sub' => $uid,
+                    'scopes' => $scopes,
+                    'site' => home_url(),
+                ];
+                if (!empty($t['origin'])) { $accessClaims['aud'] = (string)$t['origin']; }
+                $access = $this->jwt_issue($accessClaims, 900);
+                // Always rotate: revoke old and issue new
+                $new = $this->create_refresh_token($uid, $scopes, 30, (string)($t['origin'] ?? ''));
+                unset($tokens[$idx]);
+                $this->save_refresh_tokens($uid, array_values($tokens));
+                $this->audit_append('token.refresh.rotate', [ 'user' => $uid ]);
+                return [ 'user_id' => $uid, 'access' => $access, 'refresh' => $new ];
+            }
+        }
+        return new WP_Error('invalid_grant', 'Refresh token not found');
     }
 
     private function jwt_issue(array $claims, $ttl = 3600) {
@@ -229,34 +323,62 @@ class WPCursor_Plugin {
             }
         ]);
 
-        // Token issuance (stub): in production issue short-lived, scoped JWTs
+        // Token issuance + refresh
         register_rest_route(self::NS, '/auth/token', [
             'methods'  => 'POST',
-            'permission_callback' => function () { return current_user_can('read'); },
+            'permission_callback' => function () { return true; },
             'args' => [
                 'code' => [ 'required' => false ],
                 'scopes' => [ 'required' => false ],
                 'ttl' => [ 'required' => false ],
+                'grant_type' => [ 'required' => false ],
+                'refresh_token' => [ 'required' => false ],
+                'origin' => [ 'required' => false ],
             ],
             'callback' => function(WP_REST_Request $req) {
+                $grant = (string)$req->get_param('grant_type');
+                if ($grant === 'refresh_token') {
+                    $refresh = (string)($req->get_param('refresh_token') ?: '');
+                    $origin = (string)($req->get_param('origin') ?: '');
+                    if ($refresh === '') return new WP_Error('invalid_request', 'Missing refresh_token', ['status' => 400]);
+                    $ex = $this->exchange_refresh_token($refresh, $origin);
+                    if (is_wp_error($ex)) return $ex;
+                    $ttl = 900;
+                    return new WP_REST_Response([
+                        'access_token' => $ex['access'],
+                        'token_type' => 'bearer',
+                        'expires_in' => $ttl,
+                        'refresh_token' => isset($ex['refresh']) ? $ex['refresh']['token'] : $refresh,
+                    ], 200);
+                }
+
+                // Authenticated issuance for current user
+                if (!current_user_can('read')) {
+                    return new WP_Error('unauthorized', 'Login required', ['status' => 401]);
+                }
                 $user = wp_get_current_user();
                 $scopes = $req->get_param('scopes');
                 if (!is_array($scopes) || empty($scopes)) {
                     $scopes = ['posts:read'];
                 }
-                $ttl = (int)($req->get_param('ttl') ?: 3600);
+                $ttl = (int)($req->get_param('ttl') ?: 900);
                 $claims = [
                     'sub' => (int)$user->ID,
                     'scopes' => array_values(array_unique(array_map('strval', $scopes))),
                     'site' => home_url(),
                 ];
+                $origin = (string)($req->get_param('origin') ?: '');
+                if (!empty($origin)) { $claims['aud'] = $origin; }
                 $token = $this->jwt_issue($claims, $ttl);
+                $refresh = $this->create_refresh_token((int)$user->ID, $claims['scopes'], 30, $origin);
                 $this->audit_append('token.issue', [ 'scopes' => $claims['scopes'], 'ttl' => $ttl ]);
                 return new WP_REST_Response([
                     'access_token' => $token,
                     'token_type' => 'bearer',
                     'expires_in' => $ttl,
                     'scopes' => $scopes,
+                    'refresh_token' => $refresh['token'],
+                    'refresh_expires_in' => (int)$refresh['exp'] - time(),
                 ], 200);
             }
         ]);
@@ -490,6 +612,34 @@ class WPCursor_Plugin {
         if (!current_user_can('manage_options')) return;
         $issued = null;
         $redirected = false;
+        // Auto-connect flow via GET: /wp-admin/admin.php?page=wpcursor-admin&connect=1&app=...&write=1
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['connect']) && isset($_GET['app'])) {
+            $app_url = esc_url_raw(trim((string)$_GET['app']));
+            if (!empty($app_url)) {
+                $scopes = ['posts:read'];
+                if (isset($_GET['files']) && $_GET['files'] === '1') { $scopes[] = 'files:read'; }
+                $ttl = isset($_GET['ttl']) ? max(300, min(24*3600, (int)$_GET['ttl'])) : 3600;
+                $claims = [
+                    'sub' => get_current_user_id(),
+                    'scopes' => $scopes,
+                    'site' => home_url(),
+                ];
+                $token = $this->jwt_issue($claims, $ttl);
+                $refresh = $this->create_refresh_token(get_current_user_id(), $scopes, 30, $app_url);
+                $this->audit_append('token.issue', [ 'scopes' => $scopes, 'ttl' => $ttl, 'via' => 'auto-connect' ]);
+                $accept = rtrim($app_url, '/') . '/api/mcp/connection/accept';
+                $params = [
+                    'site' => home_url(),
+                    'token' => $token,
+                    'refresh' => $refresh['token'],
+                    'write' => isset($_GET['write']) && ($_GET['write'] === '1' || $_GET['write'] === 'true') ? '1' : '0',
+                ];
+                $location = $accept . '?' . http_build_query($params);
+                $redirected = true;
+                wp_safe_redirect($location);
+                exit;
+            }
+        }
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_admin_referer('wpcursor_issue_token')) {
             $scopes = isset($_POST['scopes']) && is_array($_POST['scopes']) ? array_values(array_map('sanitize_text_field', $_POST['scopes'])) : ['posts:read'];
             $ttl = isset($_POST['ttl']) ? max(60, min(24*3600, (int)$_POST['ttl'])) : 3600;
@@ -515,11 +665,13 @@ class WPCursor_Plugin {
                     'site' => home_url(),
                 ];
                 $token = $this->jwt_issue($claims, $ttl);
+                $refresh = $this->create_refresh_token(get_current_user_id(), $scopes, 30, $app_url);
                 $this->audit_append('token.issue', [ 'scopes' => $scopes, 'ttl' => $ttl, 'via' => 'connect' ]);
                 $accept = rtrim($app_url, '/') . '/api/mcp/connection/accept';
                 $params = [
                     'site' => home_url(),
                     'token' => $token,
+                    'refresh' => $refresh['token'],
                     'write' => isset($_POST['write_mode']) ? '1' : '0',
                 ];
                 $location = $accept . '?' . http_build_query($params);
@@ -557,13 +709,13 @@ class WPCursor_Plugin {
             <hr style="margin:1.5em 0;" />
 
             <h2>Connect to App</h2>
-            <p>Connect without manually entering Site URL or JWT in the app. This will issue a short-lived token and redirect back to the app.</p>
+            <p>Connect without manually entering Site URL or JWT in the app. This will issue a token pair (access + refresh) and redirect back to the app.</p>
             <form method="post">
                 <?php wp_nonce_field('wpcursor_connect_app'); ?>
                 <input type="hidden" name="connect_app" value="1" />
                 <p>
                     <label>App URL:
-                        <input type="url" name="app_url" style="width: 420px;" placeholder="https://app.example.com or http://localhost:3000" value="<?php echo esc_attr(isset($_GET['app']) ? (string)$_GET['app'] : (is_ssl() ? 'https://localhost:3000' : 'http://localhost:3000')); ?>" required />
+                        <input type="url" name="app_url" style="width: 420px;" placeholder="https://app.example.com or http://localhost:3000" value="<?php echo esc_attr(defined('WPCURSOR_APP_URL') && WPCURSOR_APP_URL ? (string)WPCURSOR_APP_URL : (isset($_GET['app']) ? (string)$_GET['app'] : (is_ssl() ? 'https://localhost:3000' : 'http://localhost:3000'))); ?>" required />
                     </label>
                 </p>
                 <p>
@@ -576,6 +728,10 @@ class WPCursor_Plugin {
                 </p>
                 <p><button type="submit" class="button">Connect to App</button></p>
             </form>
+
+            <p style="margin-top:0.5em">
+                Tip: set <code>define('WPCURSOR_APP_URL','https://app.example.com');</code> in <code>wp-config.php</code> to prefill the App URL and enable one-click auto-connect via <code>?page=wpcursor-admin&connect=1&app=...</code>.
+            </p>
 
             <h2>Recent Audit Log</h2>
             <p>Path: <code><?php echo $audit_path; ?></code></p>
@@ -591,7 +747,7 @@ class WPCursor_Plugin {
         if (empty($transient) || !is_object($transient)) return $transient;
         $plugin_file = plugin_basename(__FILE__);
         $current = $this->plugin_version();
-        $res = wp_remote_get(self::UPDATE_MANIFEST_URL, [ 'timeout' => 5 ]);
+        $res = wp_remote_get($this->update_manifest_url(), [ 'timeout' => 5 ]);
         if (is_wp_error($res)) return $transient;
         $code = wp_remote_retrieve_response_code($res);
         if ($code !== 200) return $transient;
@@ -615,7 +771,7 @@ class WPCursor_Plugin {
         if ($action !== 'plugin_information' || !isset($args->slug) || $args->slug !== 'wp-cursor') {
             return $result;
         }
-        $res = wp_remote_get(self::UPDATE_MANIFEST_URL, [ 'timeout' => 5 ]);
+        $res = wp_remote_get($this->update_manifest_url(), [ 'timeout' => 5 ]);
         if (is_wp_error($res)) return $result;
         $code = wp_remote_retrieve_response_code($res);
         if ($code !== 200) return $result;

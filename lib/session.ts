@@ -12,6 +12,7 @@ export interface Session {
   email?: string;
   createdAt: Date;
   user: User; // NextAuth-compatible user object
+  roles?: string[]; // App roles (owner/admin/editor/viewer)
 }
 
 // NextAuth-compatible User interface for component compatibility
@@ -21,6 +22,7 @@ export interface User {
   name?: string | null;
   image?: string | null;
   type?: UserType;
+  roles?: string[] | null;
 }
 
 export interface BrowserSession extends Session {

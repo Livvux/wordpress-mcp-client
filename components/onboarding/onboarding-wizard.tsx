@@ -118,7 +118,7 @@ export function OnboardingWizard({ allowSkip = true }: OnboardingWizardProps) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">wpAgentic Setup</h1>
+              <h1 className="text-2xl font-bold">wpAgent Setup</h1>
             </div>
             {allowSkip && currentStep < 3 && (
               <Button variant="ghost" onClick={handleSkip}>

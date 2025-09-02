@@ -2,8 +2,21 @@ import { NextResponse } from 'next/server';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { site } from '@/lib/db/schema';
+import { auth } from '@/app/(auth)/auth';
+import { requireOwnerOrAdmin } from '@/lib/rbac';
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    await requireOwnerOrAdmin({
+      userId: session.user.id,
+      email: session.user.email ?? null,
+    });
+  } catch {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const url = process.env.POSTGRES_URL;
   if (!url) return NextResponse.json({ error: 'DB disabled' }, { status: 503 });
   const client = postgres(url);
@@ -17,6 +30,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    await requireOwnerOrAdmin({
+      userId: session.user.id,
+      email: session.user.email ?? null,
+    });
+  } catch {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const url = process.env.POSTGRES_URL;
   if (!url) return NextResponse.json({ error: 'DB disabled' }, { status: 503 });
   const client = postgres(url);

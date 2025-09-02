@@ -12,8 +12,8 @@ export const chatModel = new MockLanguageModelV2({
   }),
   doStream: async ({ prompt }) => ({
     stream: simulateReadableStream({
-      chunkDelayInMs: 500,
-      initialDelayInMs: 1000,
+      chunkDelayInMs: 30,
+      initialDelayInMs: 80,
       chunks: getResponseChunksByPrompt(prompt),
     }),
     rawCall: { rawPrompt: null, rawSettings: {} },
@@ -30,8 +30,8 @@ export const reasoningModel = new MockLanguageModelV2({
   }),
   doStream: async ({ prompt }) => ({
     stream: simulateReadableStream({
-      chunkDelayInMs: 500,
-      initialDelayInMs: 1000,
+      chunkDelayInMs: 30,
+      initialDelayInMs: 80,
       chunks: getResponseChunksByPrompt(prompt, true),
     }),
     rawCall: { rawPrompt: null, rawSettings: {} },
@@ -48,8 +48,8 @@ export const titleModel = new MockLanguageModelV2({
   }),
   doStream: async () => ({
     stream: simulateReadableStream({
-      chunkDelayInMs: 500,
-      initialDelayInMs: 1000,
+      chunkDelayInMs: 30,
+      initialDelayInMs: 80,
       chunks: [
         { id: '1', type: 'text-start' },
         { id: '1', type: 'text-delta', delta: 'This is a test title' },
@@ -75,8 +75,8 @@ export const artifactModel = new MockLanguageModelV2({
   }),
   doStream: async ({ prompt }) => ({
     stream: simulateReadableStream({
-      chunkDelayInMs: 50,
-      initialDelayInMs: 100,
+      chunkDelayInMs: 20,
+      initialDelayInMs: 50,
       chunks: getResponseChunksByPrompt(prompt),
     }),
     rawCall: { rawPrompt: null, rawSettings: {} },

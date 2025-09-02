@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { nanoid } from 'nanoid';
 import type { BrowserSession, Session, User, UserType } from './session';
+import { computeUserRoles } from '@/lib/rbac';
+import { encryptSecret, decryptSecret } from '@/lib/crypto';
 
 const SESSION_COOKIE_NAME = 'mcp_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -16,7 +18,18 @@ export async function getSession(): Promise<Session | null> {
   }
 
   try {
-    const session = JSON.parse(sessionCookie.value);
+    let raw = sessionCookie.value;
+    let session: any = null;
+    try {
+      session = JSON.parse(raw);
+    } catch {
+      try {
+        const decrypted = decryptSecret(raw);
+        session = JSON.parse(decrypted);
+      } catch {
+        session = null;
+      }
+    }
 
     // Validate essential fields; if corrupted or missing, force new session
     if (
@@ -40,10 +53,25 @@ export async function getSession(): Promise<Session | null> {
       } as User;
     }
 
-    return {
+    const enriched: Session = {
       ...session,
       createdAt: new Date(session.createdAt),
     } as Session;
+
+    try {
+      const roles = await computeUserRoles({
+        userId: enriched.userId,
+        email: enriched.email || null,
+      });
+      enriched.roles = roles;
+      if (enriched.user) {
+        enriched.user.roles = roles;
+      }
+    } catch (_) {
+      // ignore role enrichment failures
+    }
+
+    return enriched;
   } catch {
     return null;
   }
@@ -72,7 +100,8 @@ export async function createSession(
   };
 
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(session), {
+  const payload = encryptSecret(JSON.stringify(session));
+  cookieStore.set(SESSION_COOKIE_NAME, payload, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -94,6 +123,42 @@ export async function getOrCreateSession(): Promise<Session> {
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+// Create a session for an existing DB user (preserve DB user id)
+export async function createSessionForUser(
+  userId: string,
+  userType: UserType,
+  email: string,
+): Promise<Session> {
+  const user: User = {
+    id: userId,
+    email,
+    name: email.split('@')[0] || 'User',
+    image: null,
+    type: userType,
+  };
+
+  const session: Session = {
+    id: nanoid(),
+    userId,
+    userType,
+    email,
+    createdAt: new Date(),
+    user,
+  };
+
+  const cookieStore = await cookies();
+  const payload = encryptSecret(JSON.stringify(session));
+  cookieStore.set(SESSION_COOKIE_NAME, payload, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: SESSION_MAX_AGE,
+    path: '/',
+  });
+
+  return session;
 }
 
 // Utilities shared between server and client

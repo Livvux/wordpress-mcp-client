@@ -10,6 +10,7 @@ const querySchema = z.object({
     .string()
     .optional()
     .transform((v) => v === '1' || v === 'true' || v === 'yes'),
+  refresh: z.string().optional(),
   next: z.string().url().optional(),
 });
 
@@ -30,26 +31,26 @@ export async function GET(request: Request) {
       );
     }
 
-    const { site, token, write, next } = parsed.data;
+    const { site, token, write, refresh, next } = parsed.data;
 
-    // Optionally persist to DB if user is signed in
-    try {
-      const session = await auth();
-      if (session?.user) {
-        await upsertWordPressConnection({
-          userId: session.user.id,
-          siteUrl: site,
-          jwt: token,
-          writeMode: !!write,
-        });
-      }
-    } catch (e) {
-      // Non-fatal: we still set cookies for this browser session
-      console.warn('Accept connection: DB upsert skipped or failed', e);
+    // Require login to persist connection and set session cookies.
+    // If not logged in, redirect to login preserving the intended accept URL.
+    const session = await auth();
+    if (!session?.user) {
+      const encodedNext = encodeURIComponent(request.url);
+      return NextResponse.redirect(`/login?next=${encodedNext}`);
     }
 
-    // Set cookies for subsequent MCP calls
-    const redirectTo = next && next.startsWith('http') ? next : '/';
+    // Persist to DB for the authenticated user
+    await upsertWordPressConnection({
+      userId: session.user.id,
+      siteUrl: site,
+      jwt: token,
+      writeMode: !!write,
+    });
+
+    // Set cookies for subsequent MCP calls (bound to this logged-in browser)
+    const redirectTo = next?.startsWith('http') ? next : '/admin/wp-plugin?connected=1';
     const res = NextResponse.redirect(redirectTo);
     try {
       res.cookies.set('wp_base', site.replace(/\/$/, ''), {
@@ -66,6 +67,15 @@ export async function GET(request: Request) {
         maxAge: 60 * 60 * 24 * 7, // 7 days
         path: '/',
       });
+      if (refresh) {
+        res.cookies.set('wp_refresh', refresh, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+          path: '/',
+        });
+      }
       if (typeof write === 'boolean') {
         res.cookies.set('wp_write_mode', write ? '1' : '0', {
           httpOnly: true,
@@ -86,4 +96,3 @@ export async function GET(request: Request) {
     );
   }
 }
-
