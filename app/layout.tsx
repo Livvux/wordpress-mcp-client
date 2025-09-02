@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 import { SessionProvider } from '@/lib/auth-context';
 import { NextIntlClientProvider } from 'next-intl';
-import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://wpagent.app'),
@@ -30,9 +30,9 @@ const THEME_COLOR_SCRIPT = `(function(){
 })();`;
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const c = await cookies();
-  const l = c.get('NEXT_LOCALE')?.value || 'en';
-  const locale = l && l.startsWith('de') ? 'de' : 'en';
+  const h = await headers();
+  const headerLocale = h.get('x-next-intl-locale') || h.get('X-NEXT-INTL-LOCALE') || 'en';
+  const locale = headerLocale.toLowerCase().startsWith('de') ? 'de' : 'en';
   const messages = (await import(`@/messages/${locale}.json`)).default;
 
   return (

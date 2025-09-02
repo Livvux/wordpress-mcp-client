@@ -44,20 +44,23 @@ function getSessionFromRequest(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // Maintain our cookie-based locale and manually set the next-intl header
+  // Maintain our cookie-based locale and set the header expected by next-intl
+  const headers = new Headers(request.headers);
   let response: NextResponse | null = null;
   const localeCookie = request.cookies.get('NEXT_LOCALE')?.value;
   if (!localeCookie) {
     let detected: 'en' | 'de' = 'en';
     const accept = request.headers.get('accept-language') || '';
     if (/\bde\b|de-/.test(accept)) detected = 'de';
-    response = response ?? NextResponse.next();
+    headers.set('x-next-intl-locale', detected);
+    headers.set('X-NEXT-INTL-LOCALE', detected);
+    response = NextResponse.next({ request: { headers } });
     response.cookies.set('NEXT_LOCALE', detected, { path: '/' });
-    response.headers.set('x-next-intl-locale', detected);
   } else {
-    // Ensure the header is present for next-intl consumers
-    response = response ?? NextResponse.next();
-    response.headers.set('x-next-intl-locale', localeCookie.startsWith('de') ? 'de' : 'en');
+    const normalized = localeCookie.toLowerCase().startsWith('de') ? 'de' : 'en';
+    headers.set('x-next-intl-locale', normalized);
+    headers.set('X-NEXT-INTL-LOCALE', normalized);
+    response = NextResponse.next({ request: { headers } });
   }
 
 

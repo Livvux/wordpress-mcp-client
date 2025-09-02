@@ -112,12 +112,14 @@ export async function createSession(
   return session;
 }
 
-export async function getOrCreateSession(): Promise<Session> {
+export async function getOrCreateSession(): Promise<Session | null> {
   const session = await getSession();
   if (session) {
     return session;
   }
-  return createSession();
+  // Avoid writing cookies here; only Route Handlers or Server Actions may set cookies in Next 15.
+  // Callers should redirect to an auth endpoint that creates the session (e.g. /api/auth/guest).
+  return null;
 }
 
 export async function deleteSession(): Promise<void> {
