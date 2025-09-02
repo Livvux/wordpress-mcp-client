@@ -46,10 +46,21 @@ Dieses Dokument sammelt Verbesserungen als prüfbare Checkliste. Wir arbeiten si
 ## 9) Security‑Härtung/Headers
 - [ ] CSP/Sicherheits‑Header (z.B. `next-safe/middleware`)
 - [ ] Cookies: SameSite/Secure/HttpOnly konsistent
+- [ ] Vary: Origin für zustandsändernde Routen
+- [ ] X-Req-Id end‑to‑end (bereits gesetzt in neuen Routen)
 
 ## 10) Tests erweitern
 - [ ] Route‑Tests für AI‑Config/MCP‑Connection/Tool‑Bridges
 - [ ] Negativfälle (CSRF, fehlende Rechte, ungültige Inputs)
+- [ ] Idempotency/Replays, SSE‑Resume, Rate‑Limit, Media‑Limits
+
+## 11) Rate Limits & Quoten
+- [x] Redis‑basierte Rate‑Limits (Fallback in‑memory) für teure Routen (Media Upload)
+- [ ] Ausweiten auf weitere schreibende Routen/Tools
+
+## 12) Observability
+- [x] `X-Req-Id` in Antworten neuer Routen
+- [ ] Audit‑Anreicherung (latency, input_hash, plugin_version)
 
 ---
 
