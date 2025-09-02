@@ -24,10 +24,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const reqId = request.headers.get('x-req-id') || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    const reqId =
+      request.headers.get('x-req-id') ||
+      (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
     // Rate limit media uploads per user/site
     const rlKey = `media:${session?.userId || 'anon'}`;
-    const { allowed, remaining } = await rateLimit({ key: rlKey, windowMs: 60_000, max: 5 });
+    const { allowed, remaining } = await rateLimit({
+      key: rlKey,
+      windowMs: 60_000,
+      max: 5,
+    });
     if (!allowed) {
       return NextResponse.json({ error: 'Rate limited' }, { status: 429 });
     }
@@ -53,7 +59,10 @@ export async function POST(request: Request) {
       const store = await cookieMod.cookies();
       const writeMode = store.get('wp_write_mode')?.value === '1';
       if (!writeMode) {
-        return NextResponse.json({ error: 'Write mode disabled' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Write mode disabled' },
+          { status: 403 },
+        );
       }
     } catch {}
     const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -68,7 +77,11 @@ export async function POST(request: Request) {
     const idemKey = request.headers.get('Idempotency-Key') || undefined;
     const routeId = 'POST:/api/wp/media';
     if (idemKey) {
-      const cacheKey = makeIdempotencyKey(routeId, idemKey, { siteUrl, name: (f as any).name, size: f.size });
+      const cacheKey = makeIdempotencyKey(routeId, idemKey, {
+        siteUrl,
+        name: (f as any).name,
+        size: f.size,
+      });
       const cached = await idemGet(cacheKey);
       if (cached) {
         const res = NextResponse.json(cached.body, { status: cached.status });
@@ -92,7 +105,11 @@ export async function POST(request: Request) {
     res.headers.set('Vary', 'Origin');
     res.headers.set('X-Req-Id', String(reqId));
     if (idemKey) {
-      const cacheKey = makeIdempotencyKey(routeId, idemKey, { siteUrl, name: (f as any).name, size: f.size });
+      const cacheKey = makeIdempotencyKey(routeId, idemKey, {
+        siteUrl,
+        name: (f as any).name,
+        size: f.size,
+      });
       await idemSet(cacheKey, { status: 201, body: payload });
     }
     return res;

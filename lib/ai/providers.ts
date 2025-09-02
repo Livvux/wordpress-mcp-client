@@ -1,9 +1,18 @@
-import { customProvider, extractReasoningMiddleware, wrapLanguageModel } from 'ai';
+import {
+  customProvider,
+  extractReasoningMiddleware,
+  wrapLanguageModel,
+} from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { xai } from '@ai-sdk/xai';
-import { artifactModel, chatModel, reasoningModel, titleModel } from './models.test';
+import {
+  artifactModel,
+  chatModel,
+  reasoningModel,
+  titleModel,
+} from './models.test';
 import { isTestEnvironment } from '../constants';
 
 // Strictly server/env-based sync loader; never reads client storage
@@ -67,31 +76,31 @@ function createDynamicProvider() {
   switch (aiConfig.provider) {
     case 'openai':
       providerFunc = openai;
-      config = { apiKey: aiConfig.apiKey };
+      config = { apiKey: aiConfig.apiKey! };
       break;
     case 'anthropic':
       providerFunc = anthropic;
-      config = { apiKey: aiConfig.apiKey };
+      config = { apiKey: aiConfig.apiKey! };
       break;
     case 'google':
       providerFunc = google;
-      config = { apiKey: aiConfig.apiKey };
+      config = { apiKey: aiConfig.apiKey! };
       break;
     case 'openrouter':
       providerFunc = openai;
       config = {
-        apiKey: aiConfig.apiKey,
+        apiKey: aiConfig.apiKey!,
         baseURL: 'https://openrouter.ai/api/v1',
       };
       break;
     case 'deepseek':
       providerFunc = openai;
-      config = { apiKey: aiConfig.apiKey, baseURL: 'https://api.deepseek.com' };
+      config = { apiKey: aiConfig.apiKey!, baseURL: 'https://api.deepseek.com' };
       break;
     case 'xai':
     default:
       providerFunc = xai;
-      config = { apiKey: aiConfig.apiKey };
+      config = { apiKey: aiConfig.apiKey! };
       break;
   }
 
@@ -103,15 +112,14 @@ function createDynamicProvider() {
   return customProvider({
     languageModels: {
       'chat-model': mainModel,
-      'chat-model-reasoning':
-        reasoningModelEnv
-          ? aiConfig.provider === 'xai'
-            ? wrapLanguageModel({
-                model: providerFunc(reasoningModelEnv),
-                middleware: extractReasoningMiddleware({ tagName: 'think' }),
-              })
-            : providerFunc(reasoningModelEnv)
-          : mainModel,
+      'chat-model-reasoning': reasoningModelEnv
+        ? aiConfig.provider === 'xai'
+          ? wrapLanguageModel({
+              model: providerFunc(reasoningModelEnv),
+              middleware: extractReasoningMiddleware({ tagName: 'think' }),
+            })
+          : providerFunc(reasoningModelEnv)
+        : mainModel,
       'title-model': titleModelVar,
       'artifact-model': mainModel,
     },

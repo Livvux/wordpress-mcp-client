@@ -26,7 +26,11 @@ export async function rateLimit({
       pttl = windowMs;
     }
     const allowed = count <= max;
-    return { allowed, remaining: Math.max(0, max - count), resetAt: now + pttl };
+    return {
+      allowed,
+      remaining: Math.max(0, max - count),
+      resetAt: now + pttl,
+    };
   }
   const rec = FALLBACK.get(key);
   if (!rec || rec.resetAt < now) {
@@ -35,6 +39,9 @@ export async function rateLimit({
   }
   rec.count += 1;
   const allowed = rec.count <= max;
-  return { allowed, remaining: Math.max(0, max - rec.count), resetAt: rec.resetAt };
+  return {
+    allowed,
+    remaining: Math.max(0, max - rec.count),
+    resetAt: rec.resetAt,
+  };
 }
-

@@ -40,7 +40,9 @@ export async function POST(request: Request) {
   // Idempotency handling
   const idemKey = request.headers.get('Idempotency-Key') || undefined;
   const routeId = 'POST:/api/wp/posts';
-  const reqId = request.headers.get('x-req-id') || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+  const reqId =
+    request.headers.get('x-req-id') ||
+    (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   if (idemKey) {
     const cacheKey = makeIdempotencyKey(routeId, idemKey, body);
     const cached = await idemGet(cacheKey);
@@ -60,7 +62,10 @@ export async function POST(request: Request) {
     const store = await cookieMod.cookies();
     const writeMode = store.get('wp_write_mode')?.value === '1';
     if (!writeMode) {
-      return NextResponse.json({ error: 'Write mode disabled' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Write mode disabled' },
+        { status: 403 },
+      );
     }
   } catch {}
 

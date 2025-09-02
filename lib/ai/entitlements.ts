@@ -23,11 +23,4 @@ export const entitlementsByUserType: Record<UserType, Entitlements> = {
     availableChatModelIds: ['chat-model', 'chat-model-reasoning'],
   },
 
-  /*
-   * Paid membership users
-   */
-  paid: {
-    maxMessagesPerDay: 1000,
-    availableChatModelIds: ['chat-model', 'chat-model-reasoning'],
-  },
 };

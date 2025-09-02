@@ -5,6 +5,7 @@ export type ErrorType =
   | 'not_found'
   | 'rate_limit'
   | 'offline'
+  | 'payment_required'
   | 'internal_error'
   | 'internal_server_error';
 
@@ -83,6 +84,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
   switch (errorCode) {
     case 'bad_request:api':
       return "The request couldn't be processed. Please check your input and try again.";
+    case 'payment_required:api':
+      return 'Upgrade required to continue.';
 
     case 'unauthorized:auth':
       return 'You need to sign in before continuing.';
@@ -126,6 +129,8 @@ function getStatusCodeByType(type: ErrorType) {
       return 404;
     case 'rate_limit':
       return 429;
+    case 'payment_required':
+      return 402;
     case 'offline':
       return 503;
     case 'internal_error':

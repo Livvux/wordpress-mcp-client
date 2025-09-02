@@ -64,10 +64,12 @@ export async function POST(request: Request) {
           cache: 'no-store',
         });
         if (!refreshRes.ok) throw e;
-        const refreshData = await refreshRes.json().catch(() => ({} as any));
-        const newJwt = typeof refreshData?.accessToken === 'string' && refreshData.accessToken.length > 0
-          ? refreshData.accessToken
-          : (await cookies()).get('wp_jwt')?.value || '';
+        const refreshData = await refreshRes.json().catch(() => ({}) as any);
+        const newJwt =
+          typeof refreshData?.accessToken === 'string' &&
+          refreshData.accessToken.length > 0
+            ? refreshData.accessToken
+            : (await cookies()).get('wp_jwt')?.value || '';
         const wpBase2 = (await cookies()).get('wp_base')?.value || wpBase;
         client = new MCPClient(wpBase2, newJwt);
         result = await client.callTool(name, args);
@@ -76,12 +78,16 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json(result);
+    const res = NextResponse.json(result);
+    res.headers.set('Vary', 'Origin');
+    return res;
   } catch (error) {
     console.error('Error calling MCP tool:', error);
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to call tool' },
       { status: 500 },
     );
+    res.headers.set('Vary', 'Origin');
+    return res;
   }
 }

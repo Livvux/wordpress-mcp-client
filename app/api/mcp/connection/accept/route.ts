@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/app/(auth)/auth-simple';
-import { upsertWordPressConnection } from '@/lib/db/queries';
+import {
+  countWordPressConnectionsByUserId,
+  getWordPressConnectionByUserAndSite,
+  hasActiveSubscription,
+  upsertWordPressConnection,
+} from '@/lib/db/queries';
 
 const querySchema = z.object({
   site: z.string().url(),
@@ -41,7 +46,27 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`/login?next=${encodedNext}`);
     }
 
-    // Persist to DB for the authenticated user
+    // Persist to DB for the authenticated user (enforce plan limits)
+    const existing = await getWordPressConnectionByUserAndSite({
+      userId: session.user.id,
+      siteUrl: site,
+    });
+    if (!existing) {
+      const count = await countWordPressConnectionsByUserId(session.user.id);
+      const roles = session.session.roles || [];
+      const isAdmin = roles.includes('admin') || roles.includes('owner');
+      const hasSub = await hasActiveSubscription(session.user.id);
+      if (!isAdmin && !hasSub && count >= 1) {
+        return NextResponse.json(
+          {
+            error: 'plan_limit',
+            message:
+              'Free plan supports only 1 connected site. Upgrade to add more.',
+          },
+          { status: 402 },
+        );
+      }
+    }
     await upsertWordPressConnection({
       userId: session.user.id,
       siteUrl: site,
@@ -50,7 +75,9 @@ export async function GET(request: Request) {
     });
 
     // Set cookies for subsequent MCP calls (bound to this logged-in browser)
-    const redirectTo = next?.startsWith('http') ? next : '/admin/wp-plugin?connected=1';
+    const redirectTo = next?.startsWith('http')
+      ? next
+      : '/admin/wp-plugin?connected=1';
     const res = NextResponse.redirect(redirectTo);
     try {
       res.cookies.set('wp_base', site.replace(/\/$/, ''), {

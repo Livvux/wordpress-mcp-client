@@ -59,9 +59,10 @@ export async function computeUserRoles(opts: {
   if (opts.userId) {
     try {
       const orgRoles = await getOrgRolesForUser(opts.userId);
-      orgRoles.forEach((r) => roles.add(r));
-      // Treat owner as admin for app-level admin checks
-      if (orgRoles.includes('owner')) roles.add('admin');
+      // Keep organization roles, but do NOT add org-level 'admin' as app-level 'admin'
+      orgRoles
+        .filter((r) => r !== 'admin')
+        .forEach((r) => roles.add(r));
     } catch (_) {
       // ignore DB issues; roles remain as-is
     }
@@ -71,11 +72,14 @@ export async function computeUserRoles(opts: {
   return Array.from(roles);
 }
 
+// App-level admin: only via ADMIN_EMAILS
 export async function hasOwnerOrAdmin(
-  roles?: string[] | null,
+  _roles?: string[] | null,
+  email?: string | null,
 ): Promise<boolean> {
-  if (!roles || roles.length === 0) return false;
-  return roles.includes('admin') || roles.includes('owner');
+  if (!email) return false;
+  const admins = parseAdminEmails();
+  return admins.has(email.toLowerCase());
 }
 
 export async function ensureRole(
@@ -101,5 +105,8 @@ export async function requireOwnerOrAdmin(opts: {
   userId?: string;
   email?: string | null;
 }): Promise<void> {
-  return requireRole(['owner', 'admin'], opts);
+  const ok = await hasOwnerOrAdmin(undefined, opts.email ?? null);
+  if (!ok) {
+    throw new ChatSDKError('forbidden:auth', 'Insufficient privileges');
+  }
 }

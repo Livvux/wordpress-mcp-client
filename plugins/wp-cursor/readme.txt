@@ -24,6 +24,7 @@ Admin Console (Tools → WP Cursor):
 Admin Console (Tools → WP Cursor):
 - Issue tokens manually for local testing
 - Connect to App flow: enter App URL (e.g. http://localhost:3000) to generate a short‑lived token and redirect to the app’s accept endpoint. No need to paste Site URL or JWT into the app.
+- Pair with App via Device Code: generate a pairing code in the app and enter it here with the App URL; the plugin will submit a short‑lived token to the app. Complete the link in the app. No token copy/paste required.
 - View recent signed audit log entries
 
 This is a development scaffold. Do not use in production as-is.

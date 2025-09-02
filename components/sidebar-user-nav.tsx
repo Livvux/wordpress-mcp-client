@@ -13,6 +13,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import * as React from 'react';
 
 import {
   SidebarMenu,
@@ -20,6 +21,8 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useSession } from '@/lib/auth-context';
+import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +33,34 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function SidebarUserNav() {
+  const t = useTranslations();
   const { setTheme, resolvedTheme } = useTheme();
   const { session } = useSession();
+  const [accountOpen, setAccountOpen] = React.useState(false);
   const isGuest = !session || session.userType === 'guest';
+  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+  const { data: billing } = useSWR<{ plan: 'free'|'pro' }>(
+    '/api/billing/status',
+    (u: string) => fetch(u).then((r) => r.json()),
+  );
+
+  React.useEffect(() => {
+    // Mount dropdown inside the sidebar so CSS vars like --sidebar-width apply
+    const el = document.querySelector<HTMLElement>('[data-sidebar=sidebar]');
+    setPortalContainer(el);
+    try {
+      setAvatarUrl(localStorage.getItem('avatar-data-url'));
+    } catch {}
+    const onAvatar = (e: any) => {
+      if (typeof e?.detail === 'string') setAvatarUrl(e.detail);
+      else {
+        try { setAvatarUrl(localStorage.getItem('avatar-data-url')); } catch {}
+      }
+    };
+    window.addEventListener('avatar-updated', onAvatar as any);
+    return () => window.removeEventListener('avatar-updated', onAvatar as any);
+  }, []);
 
   const displayEmail = session?.email || null;
   // For guest sessions, do NOT use any provided name like "Guest User";
@@ -47,11 +75,9 @@ export function SidebarUserNav() {
     .slice(0, 2)
     .toUpperCase();
 
-  // Show Admin entry only for owner/admin roles
+  // Show Admin entry only for app-level admins (ADMIN_EMAILS)
   const roles = (session as any)?.roles || (session as any)?.user?.roles || [];
-  const isAdmin = Array.isArray(roles)
-    ? roles.includes('admin') || roles.includes('owner')
-    : false;
+  const isAdmin = Array.isArray(roles) ? roles.includes('admin') : false;
 
   async function handleSignOut() {
     try {
@@ -71,21 +97,22 @@ export function SidebarUserNav() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               data-testid="user-nav-button"
-              className="h-9 px-2 justify-start gap-2"
+              className="h-auto py-2 px-2 justify-start gap-2"
               aria-label="Open user menu"
             >
-              <div className="h-8 w-8 rounded-full bg-sidebar-accent-foreground/10 flex items-center justify-center text-xs font-medium shrink-0">
-                {isGuest ? <User className="size-4" /> : initials}
-              </div>
-              <div className="flex min-w-0 items-center gap-1">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-sidebar-accent-foreground/10 flex items-center justify-center text-xs font-medium shrink-0">
+                  {isGuest ? <User className="size-4" /> : initials}
+                </div>
+              )}
+              <div className="flex min-w-0 flex-col">
                 <span className="text-sm font-medium truncate">
                   {displayName || (isGuest ? 'Welcome' : 'User')}
                 </span>
-                <span
-                  className="text-xs text-sidebar-foreground/60 truncate"
-                  data-testid="user-email"
-                >
-                  {displayEmail || 'Guest'}
+                <span className="text-xs text-sidebar-foreground/60 truncate">
+                  {(billing?.plan === 'pro' ? 'Pro' : 'Free')}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -95,18 +122,24 @@ export function SidebarUserNav() {
             align="end"
             sideOffset={6}
             data-testid="user-nav-menu"
+            // Match the sidebar width and ensure it inherits --sidebar-width
+            className="w-[--sidebar-width] max-w-[--sidebar-width]"
+            container={portalContainer}
           >
             {isGuest ? (
               <>
-                <DropdownMenuLabel>Welcome</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('welcome')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild data-testid="user-nav-item-auth">
                   <AuthModal
                     mode="login"
                     allowSwitch
                     trigger={
-                      <button type="button" className="w-full text-left text-sm font-light px-2 py-1.5">
-                        Login or Register
+                      <button
+                        type="button"
+                        className="w-full text-left text-sm font-light px-2 py-1.5"
+                      >
+                        {t('login_or_register')}
                       </button>
                     }
                   />
@@ -140,18 +173,14 @@ export function SidebarUserNav() {
                 )}
                 <DropdownMenuSeparator />
                 {/* Use DropdownMenuItem as the actual trigger to inherit consistent sizing */}
-                <AccountModal
-                  trigger={
-                    <DropdownMenuItem>
-                      <Settings className="size-4" />
-                      <span>Account</span>
-                    </DropdownMenuItem>
-                  }
-                />
+                <DropdownMenuItem onClick={() => setAccountOpen(true)}>
+                  <Settings className="size-4" />
+                  <span>Account</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/billing" className="flex items-center gap-2">
+                  <Link href="/upgrade" className="flex items-center gap-2">
                     <CreditCard className="size-4" />
-                    <span>Billing</span>
+                    <span>{t('billing')}</span>
                   </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
@@ -183,7 +212,7 @@ export function SidebarUserNav() {
                     className="flex items-center gap-2 text-red-600"
                   >
                     <LogOut className="size-4" />
-                    <span>Sign out</span>
+                    <span>{t('sign_out')}</span>
                   </button>
                 </DropdownMenuItem>
               </>
@@ -191,6 +220,8 @@ export function SidebarUserNav() {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      {/* Mount Account modal at root to avoid unmount on menu close */}
+      <AccountModal open={accountOpen} onOpenChange={setAccountOpen} />
     </SidebarMenu>
   );
 }

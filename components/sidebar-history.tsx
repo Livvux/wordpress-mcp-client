@@ -200,8 +200,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                 <WordPressIcon size={24} />
               </div>
               <div>
-                Start chatting with your WordPress site.
-                Ask, manage, and update — all here.
+                Start chatting with your WordPress site. Ask, manage, and update
+                — all here.
               </div>
             </div>
           </div>

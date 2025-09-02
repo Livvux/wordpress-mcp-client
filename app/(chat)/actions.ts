@@ -25,7 +25,9 @@ async function getDynamicProvider() {
       let make: any = null;
       switch (provider) {
         case 'openai':
-          make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '' });
+          make = createOpenAI({
+            apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '',
+          });
           break;
         case 'anthropic':
           make = anthropic;
@@ -34,10 +36,18 @@ async function getDynamicProvider() {
           make = google;
           break;
         case 'openrouter':
-          make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '', baseURL: 'https://openrouter.ai/api/v1' });
+          make = createOpenAI({
+            apiKey:
+              process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '',
+            baseURL: 'https://openrouter.ai/api/v1',
+          });
           break;
         case 'deepseek':
-          make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '', baseURL: 'https://api.deepseek.com' });
+          make = createOpenAI({
+            apiKey:
+              process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+            baseURL: 'https://api.deepseek.com',
+          });
           break;
         case 'xai':
         default:
@@ -128,7 +138,9 @@ async function getDynamicProvider() {
     }
   }
 
-  console.log('No provider keys detected; returning xAI config (may fail without key)');
+  console.log(
+    'No provider keys detected; returning xAI config (may fail without key)',
+  );
   return customProvider({
     languageModels: {
       'chat-model': xai('grok-2-vision-1212'),

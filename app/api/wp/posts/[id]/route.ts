@@ -7,7 +7,7 @@ import { makeIdempotencyKey, idemGet, idemSet } from '@/lib/http/idempotency';
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  context: any,
 ) {
   const session = await getSession();
   if (!session && AUTH_ENABLED) {
@@ -21,7 +21,7 @@ export async function PATCH(
   const body = await request.json().catch(() => ({}) as any);
   if (isOss) {
     return NextResponse.json(
-      { ok: true, mode: 'oss', note: `Stubbed update for ${params.id}` },
+      { ok: true, mode: 'oss', note: `Stubbed update for ${context?.params?.id}` },
       { status: 200 },
     );
   }
@@ -36,11 +36,16 @@ export async function PATCH(
     const store = await cookieMod.cookies();
     const writeMode = store.get('wp_write_mode')?.value === '1';
     if (!writeMode) {
-      return NextResponse.json({ error: 'Write mode disabled' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Write mode disabled' },
+        { status: 403 },
+      );
     }
   } catch {}
   // Idempotency handling
-  const reqId = request.headers.get('x-req-id') || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+  const reqId =
+    request.headers.get('x-req-id') ||
+    (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   const idemKey = request.headers.get('Idempotency-Key') || undefined;
   const routeId = 'PATCH:/api/wp/posts/:id';
   if (idemKey) {
@@ -56,7 +61,7 @@ export async function PATCH(
   }
 
   const client = new WPClient(siteUrl, jwt);
-  const result = await client.updatePost(params.id, body);
+  const result = await client.updatePost(context?.params?.id as string, body);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },

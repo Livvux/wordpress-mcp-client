@@ -325,7 +325,7 @@ export function ApiSetup({
       // Basic format validation
       if (!validateApiKey(selectedProvider, apiKey)) {
         throw new Error(
-          'API key format is invalid. Please check your API key and try again.',
+          'API key format is invalid for the selected provider.',
         );
       }
 
@@ -607,3 +607,4 @@ export function ApiSetup({
     </div>
   );
 }
+

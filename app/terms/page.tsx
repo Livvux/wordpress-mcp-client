@@ -9,7 +9,9 @@ export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 prose dark:prose-invert">
       <h1>Terms of Service</h1>
-      <p className="text-sm text-muted-foreground">Last updated: September 2, 2025</p>
+      <p className="text-sm text-muted-foreground">
+        Last updated: September 2, 2025
+      </p>
 
       <p>
         Welcome to wpAgent ("wpAgent", "we", "us", or "our"). These Terms of
@@ -21,8 +23,8 @@ export default function TermsPage() {
 
       <h2>1. Eligibility</h2>
       <p>
-        You must be at least 18 years old and able to form a binding contract
-        to use the Service. If you use the Service on behalf of an organization,
+        You must be at least 18 years old and able to form a binding contract to
+        use the Service. If you use the Service on behalf of an organization,
         you represent that you have authority to bind that organization to these
         Terms.
       </p>
@@ -47,18 +49,18 @@ export default function TermsPage() {
       <p>
         You retain ownership of content you submit to the Service. You grant us
         a non-exclusive, worldwide, royalty-free license to host, process, and
-        display such content solely to provide and improve the Service.
-        wpAgent trademarks, logos, and the Service are protected by
-        intellectual property laws. No rights are granted except as expressly
-        stated in these Terms.
+        display such content solely to provide and improve the Service. wpAgent
+        trademarks, logos, and the Service are protected by intellectual
+        property laws. No rights are granted except as expressly stated in these
+        Terms.
       </p>
 
       <h2>5. Third-Party Services</h2>
       <p>
-        The Service may integrate with third-party services (e.g., AI
-        providers, WordPress, storage, or analytics). Your use of those
-        services is subject to their terms and policies. We are not responsible
-        for third-party services.
+        The Service may integrate with third-party services (e.g., AI providers,
+        WordPress, storage, or analytics). Your use of those services is subject
+        to their terms and policies. We are not responsible for third-party
+        services.
       </p>
 
       <h2>6. Fees and Payments</h2>
@@ -76,18 +78,18 @@ export default function TermsPage() {
 
       <h2>8. Warranty Disclaimer</h2>
       <p>
-        THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES
-        OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+        THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF
+        ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
       </p>
 
       <h2>9. Limitation of Liability</h2>
       <p>
-        TO THE MAXIMUM EXTENT PERMITTED BY LAW, WPAGENT AND ITS AFFILIATES
-        WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL,
-        OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER
-        INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR
-        OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR USE OF THE SERVICE.
+        TO THE MAXIMUM EXTENT PERMITTED BY LAW, WPAGENT AND ITS AFFILIATES WILL
+        NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+        PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED
+        DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER
+        INTANGIBLE LOSSES, RESULTING FROM YOUR USE OF THE SERVICE.
       </p>
 
       <h2>10. Termination</h2>
@@ -112,9 +114,7 @@ export default function TermsPage() {
       </p>
 
       <h2>13. Contact</h2>
-      <p>
-        Questions about these Terms? Contact us at support@wpagent.app.
-      </p>
+      <p>Questions about these Terms? Contact us at support@wpagent.app.</p>
     </main>
   );
 }

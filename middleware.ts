@@ -44,6 +44,22 @@ function getSessionFromRequest(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Maintain our cookie-based locale and manually set the next-intl header
+  let response: NextResponse | null = null;
+  const localeCookie = request.cookies.get('NEXT_LOCALE')?.value;
+  if (!localeCookie) {
+    let detected: 'en' | 'de' = 'en';
+    const accept = request.headers.get('accept-language') || '';
+    if (/\bde\b|de-/.test(accept)) detected = 'de';
+    response = response ?? NextResponse.next();
+    response.cookies.set('NEXT_LOCALE', detected, { path: '/' });
+    response.headers.set('x-next-intl-locale', detected);
+  } else {
+    // Ensure the header is present for next-intl consumers
+    response = response ?? NextResponse.next();
+    response.headers.set('x-next-intl-locale', localeCookie.startsWith('de') ? 'de' : 'en');
+  }
+
 
   /*
    * Playwright starts the dev server and requires a 200 status to
@@ -59,7 +75,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/setup' ||
     pathname === '/api/session'
   ) {
-    return NextResponse.next();
+    return response ?? NextResponse.next();
   }
 
   // Check for session (read from request, not next/headers)
@@ -69,22 +85,22 @@ export async function middleware(request: NextRequest) {
 
   // Always allow access to login/register pages (even if guest session exists)
   if (pathname === '/login' || pathname === '/register') {
-    return NextResponse.next();
+    return response ?? NextResponse.next();
   }
 
   if (!session) {
     const redirectUrl = encodeURIComponent(request.url);
 
     // Redirect to guest auth to create session
-    return NextResponse.redirect(
+    return (response ?? NextResponse.redirect(
       new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url),
-    );
+    ));
   }
 
   // Redirect only fully authenticated (non-guest) users away from login/register pages
   // Note: handled above by early return for /login and /register
 
-  return NextResponse.next();
+  return response ?? NextResponse.next();
 }
 
 export const config = {

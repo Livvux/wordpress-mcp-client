@@ -1,20 +1,16 @@
-import { createSession } from '@/lib/session-server';
 import { NextResponse } from 'next/server';
+import { signIn } from '@/app/(auth)/auth';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const redirectUrl = searchParams.get('redirectUrl') || '/';
-
   try {
-    // Create a new guest session without database dependencies
-    await createSession('guest');
-
-    // Redirect to the requested URL
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
-  } catch (error) {
-    console.error('Failed to create guest session:', error);
-
-    // If session creation fails, still redirect but the middleware will catch it
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
+    const url = new URL(request.url);
+    const redirectUrl = url.searchParams.get('redirectUrl') || '/';
+    // Trigger guest sign-in using the Credentials provider with id 'guest'
+    const res = await signIn('guest', { redirectTo: redirectUrl });
+    // signIn returns a Response (usually a redirect) in route handlers
+    return res as any;
+  } catch (e) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 }
+

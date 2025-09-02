@@ -45,7 +45,7 @@ export default async function AdminAIConfigPage() {
   return (
     <div className="max-w-3xl p-6 space-y-4">
       <h1 className="text-xl font-semibold">Admin: Globale AI-Modelle</h1>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-gray-600 dark:text-zinc-400">
         Diese Einstellungen definieren Provider sowie die Modelle für Chat und
         Reasoning systemweit. API-Schlüssel werden über Umgebungsvariablen
         bereitgestellt. Nutzer sehen keine konkreten Modellnamen.
@@ -53,12 +53,14 @@ export default async function AdminAIConfigPage() {
 
       <form action={saveConfig} className="space-y-4">
         <div className="space-y-1">
-          <label htmlFor="provider" className="block text-sm font-medium">Provider</label>
+          <label htmlFor="provider" className="block text-sm font-medium">
+            Provider
+          </label>
           <select
             id="provider"
             name="provider"
             defaultValue={cfg?.provider || 'openai'}
-            className="border rounded px-2 py-1 w-full"
+            className="border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 w-full bg-white dark:bg-zinc-900 dark:text-zinc-100"
           >
             {providers.map((p) => (
               <option key={p} value={p}>
@@ -68,26 +70,33 @@ export default async function AdminAIConfigPage() {
           </select>
         </div>
         <div className="space-y-1">
-          <label htmlFor="chatModel" className="block text-sm font-medium">Chat‑Modell</label>
+          <label htmlFor="chatModel" className="block text-sm font-medium">
+            Chat‑Modell
+          </label>
           <input
             id="chatModel"
             name="chatModel"
             defaultValue={(cfg as any)?.chatModel || (cfg as any)?.model || ''}
             placeholder="z. B. gpt-4o-mini, claude-3-5-sonnet-latest"
-            className="border rounded px-2 py-1 w-full"
+            className="border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 w-full bg-white dark:bg-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="reasoningModel" className="block text-sm font-medium">Reasoning‑Modell (optional)</label>
+          <label htmlFor="reasoningModel" className="block text-sm font-medium">
+            Reasoning‑Modell (optional)
+          </label>
           <input
             id="reasoningModel"
             name="reasoningModel"
             defaultValue={(cfg as any)?.reasoningModel || ''}
             placeholder="z. B. o1-mini, grok-3-mini-beta"
-            className="border rounded px-2 py-1 w-full"
+            className="border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 w-full bg-white dark:bg-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
           />
         </div>
-        <button type="submit" className="bg-black text-white rounded px-3 py-1">
+        <button
+          type="submit"
+          className="bg-black text-white dark:bg-zinc-200 dark:text-zinc-900 rounded px-3 py-1"
+        >
           Speichern
         </button>
       </form>

@@ -11,7 +11,9 @@ import { useSidebar } from './ui/sidebar';
 import { memo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
+import { WPSiteSwitcher } from '@/components/wp-site-switcher';
 import type { Session } from '@/lib/session';
+import { UpgradeCTA } from '@/components/upgrade-cta';
 
 function PureChatHeader({
   chatId,
@@ -32,10 +34,11 @@ function PureChatHeader({
   const { width: windowWidth } = useWindowSize();
 
   return (
-    <header className="flex sticky top-0 bg-background py-1.5 items-center px-2 md:px-2 gap-2">
+    <header className="flex sticky top-0 bg-background py-1 items-center px-2 md:px-2 gap-2">
       <SidebarToggle />
 
-      {(!open || windowWidth < 768) && (
+      {/* Show New Chat in header only on desktop when sidebar is closed */}
+      {!open && windowWidth >= 768 && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -58,7 +61,7 @@ function PureChatHeader({
         <ModelSelector
           session={session}
           selectedModelId={selectedModelId}
-          className="order-1 md:order-2"
+          className="order-1 md:order-2 hidden md:inline-flex"
         />
       )}
 
@@ -69,6 +72,19 @@ function PureChatHeader({
           className="order-1 md:order-3"
         />
       )}
+
+      {/* Site switcher for logged-in users (regular accounts) */}
+      {!isReadonly && session?.user?.type === 'regular' && (
+        <WPSiteSwitcher
+          session={session}
+          className="order-1 md:order-4 px-2 md:px-2 h-[34px] md:h-[34px]"
+        />
+      )}
+
+      {/* Upgrade button: desktop only, right-aligned */}
+      <div className="ml-auto hidden md:block order-10 md:order-10">
+        <UpgradeCTA variant="minimal" />
+      </div>
     </header>
   );
 }

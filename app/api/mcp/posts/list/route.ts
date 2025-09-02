@@ -27,12 +27,16 @@ export async function POST(request: Request) {
     const client = new MCPClient(wpBase, wpJwt);
     await client.initialize();
     const result = await client.callTool('posts.list', { status, perPage });
-    return NextResponse.json(result);
+    const res = NextResponse.json(result);
+    res.headers.set('Vary', 'Origin');
+    return res;
   } catch (error) {
     console.error('Error fetching posts via MCP:', error);
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: 'Failed to fetch posts' },
       { status: 500 },
     );
+    res.headers.set('Vary', 'Origin');
+    return res;
   }
 }

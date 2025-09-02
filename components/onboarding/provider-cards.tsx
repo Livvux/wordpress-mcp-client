@@ -14,6 +14,7 @@ import { ExternalLinkIcon } from 'lucide-react';
 import type { AIProvider } from '@/lib/ai/providers-config';
 import { cn } from '@/lib/utils';
 import { getProviderIcon } from './provider-icons';
+import { useTranslations } from 'next-intl';
 
 interface ProviderCardsProps {
   providers: AIProvider[];
@@ -26,6 +27,7 @@ export function ProviderCards({
   selectedProvider,
   onProviderSelect,
 }: ProviderCardsProps) {
+  const t = useTranslations();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   return (
@@ -78,7 +80,7 @@ export function ProviderCards({
 
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Popular Models:
+                  {t('popular_models')}:
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {provider.models.slice(0, 2).map((model) => (
@@ -108,7 +110,7 @@ export function ProviderCards({
                     window.open(provider.websiteUrl, '_blank');
                   }}
                 >
-                  Get API Key
+                  {t('get_api_key')}
                   <ExternalLinkIcon className="ml-1 h-3 w-3" />
                 </Button>
               </div>

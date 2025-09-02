@@ -62,7 +62,11 @@ async function getDynamicProvider() {
     return myProvider;
   }
   // Admin-first config: use global admin config from DB, then env-based fallback
-  let adminConfig: { provider: string; chatModel: string; reasoningModel?: string | null } | null = null;
+  let adminConfig: {
+    provider: string;
+    chatModel: string;
+    reasoningModel?: string | null;
+  } | null = null;
   try {
     const { getGlobalAIConfig } = await import('@/lib/db/queries');
     const globalCfg = await getGlobalAIConfig();
@@ -77,144 +81,164 @@ async function getDynamicProvider() {
     console.warn('[CHAT ROUTE] Failed to load global AI config:', e);
   }
 
-    if (!adminConfig) {
-      // Environment-based fallback provider discovery
-      try {
-        if (process.env.AI_PROVIDER && process.env.AI_API_KEY && process.env.AI_CHAT_MODEL) {
-          const provider = process.env.AI_PROVIDER;
-          const chatModel = process.env.AI_CHAT_MODEL;
-          const reasoningModel = process.env.AI_REASONING_MODEL;
-          let make: any = null;
-          switch (provider) {
-            case 'openai':
-              make = createOpenAI({ apiKey: process.env.AI_API_KEY });
-              break;
-            case 'anthropic':
-              make = anthropic;
-              break;
-            case 'google':
-              make = google;
-              break;
-            case 'openrouter':
-              make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
-              break;
-            case 'deepseek':
-              make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://api.deepseek.com' });
-              break;
-            case 'xai':
-            default:
-              make = xai;
-              break;
-          }
-          return customProvider({
-            languageModels: {
-              'chat-model': make(chatModel),
-              'chat-model-reasoning': reasoningModel ? make(reasoningModel) : make(chatModel),
-              'title-model': make(chatModel),
-              'artifact-model': make(chatModel),
-            },
-            imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
-          });
+  if (!adminConfig) {
+    // Environment-based fallback provider discovery
+    try {
+      if (
+        process.env.AI_PROVIDER &&
+        process.env.AI_API_KEY &&
+        process.env.AI_CHAT_MODEL
+      ) {
+        const provider = process.env.AI_PROVIDER;
+        const chatModel = process.env.AI_CHAT_MODEL;
+        const reasoningModel = process.env.AI_REASONING_MODEL;
+        let make: any = null;
+        switch (provider) {
+          case 'openai':
+            make = createOpenAI({ apiKey: process.env.AI_API_KEY });
+            break;
+          case 'anthropic':
+            make = anthropic;
+            break;
+          case 'google':
+            make = google;
+            break;
+          case 'openrouter':
+            make = createOpenAI({
+              apiKey: process.env.AI_API_KEY,
+              baseURL: 'https://openrouter.ai/api/v1',
+            });
+            break;
+          case 'deepseek':
+            make = createOpenAI({
+              apiKey: process.env.AI_API_KEY,
+              baseURL: 'https://api.deepseek.com',
+            });
+            break;
+          case 'xai':
+          default:
+            make = xai;
+            break;
         }
-        if (process.env.OPENAI_API_KEY) {
-          const prov = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-          return customProvider({
-            languageModels: {
-              'chat-model': prov('gpt-4o-mini'),
-              'chat-model-reasoning': prov('gpt-4o-mini'),
-              'title-model': prov('gpt-4o-mini'),
-              'artifact-model': prov('gpt-4o-mini'),
-            },
-          });
-        }
-        if (process.env.ANTHROPIC_API_KEY) {
-          return customProvider({
-            languageModels: {
-              'chat-model': anthropic('claude-3-5-sonnet-latest'),
-              'chat-model-reasoning': anthropic('claude-3-5-sonnet-latest'),
-              'title-model': anthropic('claude-3-5-sonnet-latest'),
-              'artifact-model': anthropic('claude-3-5-sonnet-latest'),
-            },
-          });
-        }
-        if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-          return customProvider({
-            languageModels: {
-              'chat-model': google('gemini-1.5-pro'),
-              'chat-model-reasoning': google('gemini-1.5-pro'),
-              'title-model': google('gemini-1.5-pro'),
-              'artifact-model': google('gemini-1.5-pro'),
-            },
-          });
-        }
-        if (process.env.XAI_API_KEY) {
-          return customProvider({
-            languageModels: {
-              'chat-model': xai('grok-2-vision-1212'),
-              'chat-model-reasoning': xai('grok-3-mini-beta'),
-              'title-model': xai('grok-2-1212'),
-              'artifact-model': xai('grok-2-1212'),
-            },
-            imageModels: {
-              'small-model': xai.imageModel('grok-2-image'),
-            },
-          });
-        }
-        if (process.env.OPENROUTER_API_KEY) {
-          const prov = createOpenAI({
-            apiKey: process.env.OPENROUTER_API_KEY,
-            baseURL: 'https://openrouter.ai/api/v1',
-          });
-          return customProvider({
-            languageModels: {
-              'chat-model': prov('openrouter/auto'),
-              'chat-model-reasoning': prov('openrouter/auto'),
-              'title-model': prov('openrouter/auto'),
-              'artifact-model': prov('openrouter/auto'),
-            },
-          });
-        }
-        if (process.env.DEEPSEEK_API_KEY) {
-          const prov = createOpenAI({
-            apiKey: process.env.DEEPSEEK_API_KEY,
-            baseURL: 'https://api.deepseek.com',
-          });
-          return customProvider({
-            languageModels: {
-              'chat-model': prov('deepseek-chat'),
-              'chat-model-reasoning': prov('deepseek-chat'),
-              'title-model': prov('deepseek-chat'),
-              'artifact-model': prov('deepseek-chat'),
-            },
-          });
-        }
-      } catch (e) {
-        console.warn('[CHAT ROUTE] Env-based provider fallback failed:', e);
+        return customProvider({
+          languageModels: {
+            'chat-model': make(chatModel),
+            'chat-model-reasoning': reasoningModel
+              ? make(reasoningModel)
+              : make(chatModel),
+            'title-model': make(chatModel),
+            'artifact-model': make(chatModel),
+          },
+          imageModels:
+            provider === 'xai'
+              ? { 'small-model': xai.imageModel('grok-2-image') }
+              : undefined,
+        });
       }
-
-      console.log(
-        '[CHAT ROUTE] No AI config or env keys found; defaulting to xAI (may fail without key)',
-      );
-      return customProvider({
-        languageModels: {
-          'chat-model': xai('grok-2-vision-1212'),
-          'chat-model-reasoning': xai('grok-3-mini-beta'),
-          'title-model': xai('grok-2-1212'),
-          'artifact-model': xai('grok-2-1212'),
-        },
-        imageModels: {
-          'small-model': xai.imageModel('grok-2-image'),
-        },
-      });
+      if (process.env.OPENAI_API_KEY) {
+        const prov = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        return customProvider({
+          languageModels: {
+            'chat-model': prov('gpt-4o-mini'),
+            'chat-model-reasoning': prov('gpt-4o-mini'),
+            'title-model': prov('gpt-4o-mini'),
+            'artifact-model': prov('gpt-4o-mini'),
+          },
+        });
+      }
+      if (process.env.ANTHROPIC_API_KEY) {
+        return customProvider({
+          languageModels: {
+            'chat-model': anthropic('claude-3-5-sonnet-latest'),
+            'chat-model-reasoning': anthropic('claude-3-5-sonnet-latest'),
+            'title-model': anthropic('claude-3-5-sonnet-latest'),
+            'artifact-model': anthropic('claude-3-5-sonnet-latest'),
+          },
+        });
+      }
+      if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        return customProvider({
+          languageModels: {
+            'chat-model': google('gemini-1.5-pro'),
+            'chat-model-reasoning': google('gemini-1.5-pro'),
+            'title-model': google('gemini-1.5-pro'),
+            'artifact-model': google('gemini-1.5-pro'),
+          },
+        });
+      }
+      if (process.env.XAI_API_KEY) {
+        return customProvider({
+          languageModels: {
+            'chat-model': xai('grok-2-vision-1212'),
+            'chat-model-reasoning': xai('grok-3-mini-beta'),
+            'title-model': xai('grok-2-1212'),
+            'artifact-model': xai('grok-2-1212'),
+          },
+          imageModels: {
+            'small-model': xai.imageModel('grok-2-image'),
+          },
+        });
+      }
+      if (process.env.OPENROUTER_API_KEY) {
+        const prov = createOpenAI({
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseURL: 'https://openrouter.ai/api/v1',
+        });
+        return customProvider({
+          languageModels: {
+            'chat-model': prov('openrouter/auto'),
+            'chat-model-reasoning': prov('openrouter/auto'),
+            'title-model': prov('openrouter/auto'),
+            'artifact-model': prov('openrouter/auto'),
+          },
+        });
+      }
+      if (process.env.DEEPSEEK_API_KEY) {
+        const prov = createOpenAI({
+          apiKey: process.env.DEEPSEEK_API_KEY,
+          baseURL: 'https://api.deepseek.com',
+        });
+        return customProvider({
+          languageModels: {
+            'chat-model': prov('deepseek-chat'),
+            'chat-model-reasoning': prov('deepseek-chat'),
+            'title-model': prov('deepseek-chat'),
+            'artifact-model': prov('deepseek-chat'),
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('[CHAT ROUTE] Env-based provider fallback failed:', e);
     }
+
+    console.log(
+      '[CHAT ROUTE] No AI config or env keys found; defaulting to xAI (may fail without key)',
+    );
+    return customProvider({
+      languageModels: {
+        'chat-model': xai('grok-2-vision-1212'),
+        'chat-model-reasoning': xai('grok-3-mini-beta'),
+        'title-model': xai('grok-2-1212'),
+        'artifact-model': xai('grok-2-1212'),
+      },
+      imageModels: {
+        'small-model': xai.imageModel('grok-2-image'),
+      },
+    });
+  }
 
   if (adminConfig) {
     // Create provider based on admin configuration
-    console.log('[CHAT ROUTE] Creating provider for admin config:', adminConfig.provider);
+    console.log(
+      '[CHAT ROUTE] Creating provider for admin config:',
+      adminConfig.provider,
+    );
     let make: any = null;
     switch (adminConfig.provider) {
       case 'openai':
-        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '' });
+        make = createOpenAI({
+          apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '',
+        });
         break;
       case 'anthropic':
         make = anthropic;
@@ -223,10 +247,17 @@ async function getDynamicProvider() {
         make = google;
         break;
       case 'openrouter':
-        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '', baseURL: 'https://openrouter.ai/api/v1' });
+        make = createOpenAI({
+          apiKey:
+            process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '',
+          baseURL: 'https://openrouter.ai/api/v1',
+        });
         break;
       case 'deepseek':
-        make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '', baseURL: 'https://api.deepseek.com' });
+        make = createOpenAI({
+          apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+          baseURL: 'https://api.deepseek.com',
+        });
         break;
       case 'xai':
       default:
@@ -234,7 +265,8 @@ async function getDynamicProvider() {
         break;
     }
     const chatModelId = adminConfig.chatModel;
-    const reasoningModelId = adminConfig.reasoningModel || adminConfig.chatModel;
+    const reasoningModelId =
+      adminConfig.reasoningModel || adminConfig.chatModel;
     return customProvider({
       languageModels: {
         'chat-model': make(chatModelId),
@@ -242,7 +274,10 @@ async function getDynamicProvider() {
         'title-model': make(chatModelId),
         'artifact-model': make(chatModelId),
       },
-      imageModels: adminConfig.provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+      imageModels:
+        adminConfig.provider === 'xai'
+          ? { 'small-model': xai.imageModel('grok-2-image') }
+          : undefined,
     });
   }
 }
@@ -531,7 +566,7 @@ IMPORTANT Firecrawl Usage Guidelines:
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
-          model: dynamicProvider.languageModel(selectedChatModel),
+          model: dynamicProvider!.languageModel(selectedChatModel),
           system:
             systemPrompt({ selectedChatModel, requestHints }) +
             wpSystemPromptAddition,

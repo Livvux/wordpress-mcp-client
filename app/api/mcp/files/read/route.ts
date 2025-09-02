@@ -27,9 +27,16 @@ export async function POST(request: Request) {
     const client = new MCPClient(wpBase, wpJwt);
     await client.initialize();
     const result = await client.callTool('files.read', { path });
-    return NextResponse.json(result);
+    const res = NextResponse.json(result);
+    res.headers.set('Vary', 'Origin');
+    return res;
   } catch (error) {
     console.error('Error reading file via MCP:', error);
-    return NextResponse.json({ error: 'Failed to read file' }, { status: 500 });
+    const res = NextResponse.json(
+      { error: 'Failed to read file' },
+      { status: 500 },
+    );
+    res.headers.set('Vary', 'Origin');
+    return res;
   }
 }

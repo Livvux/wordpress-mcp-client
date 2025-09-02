@@ -292,7 +292,8 @@ function PureMultimodalInput({
 
       {messages.length === 0 &&
         attachments.length === 0 &&
-        uploadQueue.length === 0 && (
+        uploadQueue.length === 0 &&
+        (process.env.NEXT_PUBLIC_ENABLE_SUGGESTED_ACTIONS !== 'false') && (
           <SuggestedActions
             sendMessage={sendMessage}
             chatId={chatId}
@@ -339,7 +340,7 @@ function PureMultimodalInput({
         value={input}
         onChange={handleInput}
         className={cx(
-          'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700',
+          'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700 focus:border-transparent focus-visible:border-transparent focus:ring-0 focus-visible:ring-0',
           className,
         )}
         rows={2}

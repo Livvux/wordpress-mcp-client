@@ -111,9 +111,13 @@ export function AuthModal({
               <button
                 type="button"
                 className="text-xs font-normal text-muted-foreground hover:text-foreground"
-                onClick={() => setCurrentMode((m) => (m === 'login' ? 'register' : 'login'))}
+                onClick={() =>
+                  setCurrentMode((m) => (m === 'login' ? 'register' : 'login'))
+                }
               >
-                {isLogin ? "Need an account? Sign up" : "Have an account? Sign in"}
+                {isLogin
+                  ? 'Need an account? Sign up'
+                  : 'Have an account? Sign in'}
               </button>
             )}
           </DialogTitle>

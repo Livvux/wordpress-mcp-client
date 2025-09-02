@@ -136,7 +136,7 @@ export function OnboardingComplete({
                 <Sparkles className="h-8 w-8" />
               </h2>
               <p className="text-muted-foreground mt-2">
-                Your wpAgent instance is ready to go!
+                Your wpAgentic instance is ready to go!
               </p>
             </motion.div>
           </motion.div>
@@ -231,26 +231,26 @@ export function OnboardingComplete({
             <div className="pt-4 border-t border-green-200 dark:border-green-800">
               <div className="space-y-2">
                 <h4 className="font-medium text-green-800 dark:text-green-200">
-                  What you can do now:
+                  What’s next
                 </h4>
                 <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
                   <li className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Chat with AI about your WordPress content</span>
+                    <span>Start a chat and ask the assistant to audit your site’s content</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Analyze posts, pages, and site data</span>
+                    <span>Use the WordPress tools to fetch, create, or update posts and pages</span>
                   </li>
                   {wordpressConfig.writeMode && (
                     <li className="flex items-center space-x-2">
                       <CheckCircle2 className="h-4 w-4" />
-                      <span>Create and edit WordPress content with AI</span>
+                      <span>Try a write task, like drafting a post or updating a page</span>
                     </li>
                   )}
                   <li className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Get insights and recommendations for your site</span>
+                    <span>Adjust settings later in your account preferences</span>
                   </li>
                 </ul>
               </div>
@@ -280,3 +280,4 @@ export function OnboardingComplete({
     </div>
   );
 }
+

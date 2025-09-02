@@ -42,7 +42,11 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { provider, chatModel, reasoningModel } = schema.parse(body);
-    const saved = await upsertGlobalAIConfig({ provider, chatModel, reasoningModel });
+    const saved = await upsertGlobalAIConfig({
+      provider,
+      chatModel,
+      reasoningModel,
+    });
     return NextResponse.json({ success: true, config: saved });
   } catch (error: any) {
     return NextResponse.json(

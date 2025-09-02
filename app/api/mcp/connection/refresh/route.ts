@@ -75,7 +75,10 @@ export async function POST(request: Request) {
 
     const access = data.access_token || '';
     const rotatedRefresh = data.refresh_token || undefined;
-    const ttl = typeof data.expires_in === 'number' && data.expires_in > 0 ? data.expires_in : 3600;
+    const ttl =
+      typeof data.expires_in === 'number' && data.expires_in > 0
+        ? data.expires_in
+        : 3600;
 
     if (!access) {
       return NextResponse.json(
@@ -92,7 +95,12 @@ export async function POST(request: Request) {
       writeMode: !!writeMode,
     });
 
-    const out = NextResponse.json({ ok: true, accessToken: access, refreshToken: rotatedRefresh || null, expiresIn: ttl });
+    const out = NextResponse.json({
+      ok: true,
+      accessToken: access,
+      refreshToken: rotatedRefresh || null,
+      expiresIn: ttl,
+    });
     // Update cookies with new tokens
     out.cookies.set('wp_base', wpBase, {
       httpOnly: true,

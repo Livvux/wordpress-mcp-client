@@ -217,11 +217,15 @@ When using WordPress tools:
       if (adminCfg?.provider && (adminCfg as any)?.chatModel) {
         const provider = adminCfg.provider as string;
         const chatModelId = (adminCfg as any).chatModel as string;
-        const reasoningModelId = (adminCfg as any).reasoningModel || chatModelId;
+        const reasoningModelId =
+          (adminCfg as any).reasoningModel || chatModelId;
         let make: any = null;
         switch (provider) {
           case 'openai':
-            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '' });
+            make = createOpenAI({
+              apiKey:
+                process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '',
+            });
             break;
           case 'anthropic':
             make = anthropic;
@@ -230,10 +234,18 @@ When using WordPress tools:
             make = google;
             break;
           case 'openrouter':
-            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '', baseURL: 'https://openrouter.ai/api/v1' });
+            make = createOpenAI({
+              apiKey:
+                process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || '',
+              baseURL: 'https://openrouter.ai/api/v1',
+            });
             break;
           case 'deepseek':
-            make = createOpenAI({ apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '', baseURL: 'https://api.deepseek.com' });
+            make = createOpenAI({
+              apiKey:
+                process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+              baseURL: 'https://api.deepseek.com',
+            });
             break;
           case 'xai':
           default:
@@ -247,12 +259,19 @@ When using WordPress tools:
             'title-model': make(chatModelId),
             'artifact-model': make(chatModelId),
           },
-          imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+          imageModels:
+            provider === 'xai'
+              ? { 'small-model': xai.imageModel('grok-2-image') }
+              : undefined,
         });
       }
 
       // Env fallback
-      if (process.env.AI_PROVIDER && process.env.AI_API_KEY && process.env.AI_CHAT_MODEL) {
+      if (
+        process.env.AI_PROVIDER &&
+        process.env.AI_API_KEY &&
+        process.env.AI_CHAT_MODEL
+      ) {
         const provider = process.env.AI_PROVIDER;
         const chatModelId = process.env.AI_CHAT_MODEL!;
         const reasoningModelId = process.env.AI_REASONING_MODEL || chatModelId;
@@ -268,10 +287,16 @@ When using WordPress tools:
             make = google;
             break;
           case 'openrouter':
-            make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+            make = createOpenAI({
+              apiKey: process.env.AI_API_KEY,
+              baseURL: 'https://openrouter.ai/api/v1',
+            });
             break;
           case 'deepseek':
-            make = createOpenAI({ apiKey: process.env.AI_API_KEY, baseURL: 'https://api.deepseek.com' });
+            make = createOpenAI({
+              apiKey: process.env.AI_API_KEY,
+              baseURL: 'https://api.deepseek.com',
+            });
             break;
           case 'xai':
           default:
@@ -285,7 +310,10 @@ When using WordPress tools:
             'title-model': make(chatModelId),
             'artifact-model': make(chatModelId),
           },
-          imageModels: provider === 'xai' ? { 'small-model': xai.imageModel('grok-2-image') } : undefined,
+          imageModels:
+            provider === 'xai'
+              ? { 'small-model': xai.imageModel('grok-2-image') }
+              : undefined,
         });
       }
 

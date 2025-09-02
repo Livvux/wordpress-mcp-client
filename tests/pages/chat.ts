@@ -19,7 +19,7 @@ export class ChatPage {
   }
 
   public get scrollContainer() {
-    return this.page.locator('.overflow-y-scroll');
+    return this.page.getByTestId('messages-scroll');
   }
 
   public get scrollToBottomButton() {

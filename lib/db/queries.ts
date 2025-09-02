@@ -16,6 +16,7 @@ import {
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { randomUUID } from 'node:crypto';
 
 import {
   user,
@@ -31,8 +32,10 @@ import {
   stream,
   aiIntegration,
   wordpressConnection,
+  deviceLink,
   subscription,
   globalAIConfig,
+  account as accountTable,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -40,6 +43,11 @@ import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import { decryptSecret, encryptSecret } from '../crypto';
+import {
+  organization,
+  organizationMember,
+  type Organization,
+} from './schema';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -124,6 +132,232 @@ export async function getUser(email: string): Promise<Array<User>> {
       'bad_request:database',
       'Failed to get user by email',
     );
+  }
+}
+
+// Device-code onboarding helpers
+function generateUserCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // avoid confusing chars
+  let s = '';
+  for (let i = 0; i < 8; i++)
+    s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return s;
+}
+
+function generateDeviceCode(): string {
+  // UUID-ish opaque token without dashes
+  return randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
+}
+
+export async function createDeviceLinkEntry(ttlSeconds = 600) {
+  await ensureDbReady();
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  // opportunistically clean expired links in the background (max once/min)
+  maybeCleanupExpiredDeviceLinks().catch(() => {});
+
+  // Retry on rare unique collisions for userCode/deviceCode
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const code = generateUserCode();
+    const device = generateDeviceCode();
+    try {
+      const [row] = await db
+        .insert(deviceLink)
+        .values({
+          userCode: code,
+          deviceCode: device,
+          expiresAt,
+          status: 'pending',
+        })
+        .returning();
+      return row;
+    } catch (err: any) {
+      const message = String(err?.message || '');
+      const code = String((err && (err.code as any)) || '');
+      const isUniqueViolation = code === '23505' || /unique/i.test(message);
+      if (!isUniqueViolation) throw err;
+      // Try again with new codes
+      if (attempt === maxAttempts - 1) throw err;
+    }
+  }
+  // Should be unreachable
+  throw new ChatSDKError(
+    'bad_request:device_link',
+    'Failed to create device link',
+  );
+}
+
+export async function approveDeviceLinkByUserCode({
+  userCode,
+  siteUrl,
+  jwt,
+  writeMode,
+  pluginVersion,
+}: {
+  userCode: string;
+  siteUrl: string;
+  jwt: string;
+  writeMode?: boolean;
+  pluginVersion?: string | null;
+}) {
+  await ensureDbReady();
+  // opportunistic cleanup
+  maybeCleanupExpiredDeviceLinks().catch(() => {});
+  const now = new Date();
+  const links = await db
+    .select()
+    .from(deviceLink)
+    .where(eq(deviceLink.userCode, userCode))
+    .limit(1);
+  if (links.length === 0) {
+    throw new ChatSDKError(
+      'bad_request:device_link',
+      'Invalid or expired code',
+    );
+  }
+  const link = links[0] as any;
+  if (new Date(link.expiresAt) < now) {
+    throw new ChatSDKError('bad_request:device_link', 'Code expired');
+  }
+  if (link.status !== 'pending') {
+    throw new ChatSDKError('bad_request:device_link', 'Code already used');
+  }
+  const jwtEncrypted = encryptSecret(jwt);
+  await db
+    .update(deviceLink)
+    .set({
+      status: 'approved',
+      approvedAt: now,
+      siteUrl,
+      jwtEncrypted,
+      writeMode: !!writeMode,
+      pluginVersion: pluginVersion ?? null,
+    })
+    .where(eq(deviceLink.id, link.id));
+  return { ok: true } as const;
+}
+
+export async function getDeviceLinkByDeviceCode(deviceCodeValue: string) {
+  await ensureDbReady();
+  // opportunistic cleanup
+  maybeCleanupExpiredDeviceLinks().catch(() => {});
+  const links = await db
+    .select()
+    .from(deviceLink)
+    .where(eq(deviceLink.deviceCode, deviceCodeValue))
+    .limit(1);
+  return links.length ? (links[0] as any) : null;
+}
+
+export async function consumeDeviceLink({
+  deviceCode: deviceCodeValue,
+  userId,
+}: {
+  deviceCode: string;
+  userId: string;
+}) {
+  await ensureDbReady();
+  // opportunistic cleanup
+  maybeCleanupExpiredDeviceLinks().catch(() => {});
+  const links = await db
+    .select()
+    .from(deviceLink)
+    .where(eq(deviceLink.deviceCode, deviceCodeValue))
+    .limit(1);
+  if (!links.length)
+    throw new ChatSDKError('bad_request:device_link', 'Not found');
+  const link = links[0] as any;
+  const now = new Date();
+  if (new Date(link.expiresAt) < now) {
+    throw new ChatSDKError('bad_request:device_link', 'Code expired');
+  }
+  if (link.status !== 'approved') {
+    throw new ChatSDKError('bad_request:device_link', 'Not approved yet');
+  }
+
+  // Enforce plan limits: free users can have only 1 site; Pro/Admin unlimited
+  // We check before inserting a new siteUrl for the user
+  try {
+    const existing = await db
+      .select({ id: wordpressConnection.id })
+      .from(wordpressConnection)
+      .where(
+        and(
+          eq(wordpressConnection.userId, userId),
+          eq(wordpressConnection.siteUrl, link.siteUrl),
+        ),
+      )
+      .limit(1);
+    if (!existing.length) {
+      // It's a new site. Count how many the user already has.
+      const rows = await db
+        .select({ id: wordpressConnection.id })
+        .from(wordpressConnection)
+        .where(eq(wordpressConnection.userId, userId));
+
+      // Determine entitlement: active subscription or admin role bypasses limit
+      let unlimited = false;
+      try {
+        // Best-effort: if subscriptions table exists and entry active
+        const hasSub = await hasActiveSubscription(userId);
+        if (hasSub) unlimited = true;
+      } catch {}
+      if (!unlimited) {
+        try {
+          const { computeUserRoles } = await import('../rbac');
+          const roles = await computeUserRoles({ userId });
+          if (roles.includes('admin') || roles.includes('owner'))
+            unlimited = true;
+        } catch {}
+      }
+
+      if (!unlimited && rows.length >= 1) {
+        throw new ChatSDKError(
+          'payment_required:api',
+          'Free plan supports only 1 connected site. Upgrade to add more.',
+        );
+      }
+    }
+  } catch (err) {
+    if (err instanceof ChatSDKError) throw err;
+    // If RBAC/subscription checks fail, proceed (fail-open) to avoid blocking
+  }
+
+  // Persist the connection for this user
+  if (!link.siteUrl || !link.jwtEncrypted) {
+    throw new ChatSDKError(
+      'bad_request:device_link',
+      'Missing connection data',
+    );
+  }
+  const jwt = decryptSecret(link.jwtEncrypted);
+  await upsertWordPressConnection({
+    userId,
+    siteUrl: link.siteUrl,
+    jwt,
+    writeMode: !!link.writeMode,
+  });
+
+  await db
+    .update(deviceLink)
+    .set({ status: 'consumed', consumedAt: now })
+    .where(eq(deviceLink.id, link.id));
+
+  return { siteUrl: link.siteUrl, jwt, writeMode: !!link.writeMode };
+}
+
+// Lightweight background cleanup of expired device links
+let lastDeviceLinkCleanup = 0;
+async function maybeCleanupExpiredDeviceLinks(): Promise<void> {
+  try {
+    const nowMs = Date.now();
+    // throttle to once per minute
+    if (nowMs - lastDeviceLinkCleanup < 60_000) return;
+    lastDeviceLinkCleanup = nowMs;
+    // Delete any rows past expiration
+    await db.delete(deviceLink).where(lt(deviceLink.expiresAt, new Date()));
+  } catch (err) {
+    console.warn('[deviceLink] cleanup failed:', err);
   }
 }
 
@@ -212,6 +446,59 @@ export async function getUserById(userId: string): Promise<User | null> {
   }
 }
 
+// OAuth Accounts linking
+export async function getLinkedAccounts(userId: string) {
+  try {
+    const rows = await ensureDb()
+      .select()
+      .from(accountTable)
+      .where(eq(accountTable.userId, userId));
+    return rows;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load linked accounts',
+    );
+  }
+}
+
+export async function unlinkAccount({
+  userId,
+  provider,
+}: {
+  userId: string;
+  provider: string;
+}) {
+  try {
+    const _db = ensureDb();
+    // Ensure user won't be locked out: require either password or another account
+    const [u] = await _db.select().from(user).where(eq(user.id, userId)).limit(1);
+    const accounts = await _db
+      .select()
+      .from(accountTable)
+      .where(eq(accountTable.userId, userId));
+
+    const remaining = accounts.filter((a) => a.provider !== provider);
+    const hasPassword = !!u?.password;
+    if (!hasPassword && remaining.length === 0) {
+      throw new ChatSDKError(
+        'bad_request:auth',
+        'Cannot remove the last sign-in method.',
+      );
+    }
+
+    await _db
+      .delete(accountTable)
+      .where(and(eq(accountTable.userId, userId), eq(accountTable.provider, provider)));
+  } catch (error) {
+    if (error instanceof ChatSDKError) throw error;
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to unlink account',
+    );
+  }
+}
+
 export async function updateUserPassword(userId: string, newPassword: string) {
   try {
     const _db = ensureDb();
@@ -274,6 +561,153 @@ export async function createGuestUser() {
       'bad_request:database',
       'Failed to create guest user',
     );
+  }
+}
+
+// Organizations
+export async function getUserOrganizations(userId: string) {
+  const _db = ensureDb();
+  try {
+    const rows = await _db
+      .select({
+        orgId: organization.id,
+        name: organization.name,
+        role: organizationMember.role,
+        membershipId: organizationMember.id,
+      })
+      .from(organizationMember)
+      .leftJoin(
+        organization,
+        eq(organizationMember.orgId, organization.id),
+      )
+      .where(eq(organizationMember.userId, userId));
+    return rows;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to load organizations');
+  }
+}
+
+export async function createOrganization({
+  userId,
+  name,
+}: {
+  userId: string;
+  name: string;
+}) {
+  const _db = ensureDb();
+  try {
+    const [org] = await _db
+      .insert(organization)
+      .values({ name })
+      .returning({ id: organization.id, name: organization.name });
+    await _db
+      .insert(organizationMember)
+      .values({ orgId: org.id as any, userId, role: 'owner' });
+    return org;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to create organization');
+  }
+}
+
+export async function listOrgMembers(orgId: string) {
+  const _db = ensureDb();
+  try {
+    const rows = await _db
+      .select({
+        membershipId: organizationMember.id,
+        userId: organizationMember.userId,
+        role: organizationMember.role,
+        email: user.email,
+      })
+      .from(organizationMember)
+      .leftJoin(user, eq(user.id, organizationMember.userId))
+      .where(eq(organizationMember.orgId, orgId));
+    return rows;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to list members');
+  }
+}
+
+export async function addOrgMember({
+  orgId,
+  email,
+  role,
+}: {
+  orgId: string;
+  email: string;
+  role: 'admin' | 'editor' | 'viewer';
+}) {
+  const _db = ensureDb();
+  try {
+    const target = await getOrCreateUserByEmail(email);
+    // Upsert membership
+    const existing = await _db
+      .select({ id: organizationMember.id })
+      .from(organizationMember)
+      .where(
+        and(
+          eq(organizationMember.orgId, orgId),
+          eq(organizationMember.userId, target.id),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      await _db
+        .update(organizationMember)
+        .set({ role })
+        .where(eq(organizationMember.id, existing[0].id as any));
+      return { userId: target.id, role };
+    }
+    const [row] = await _db
+      .insert(organizationMember)
+      .values({ orgId, userId: target.id, role })
+      .returning();
+    return row;
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to add member');
+  }
+}
+
+export async function updateOrgMemberRole({
+  membershipId,
+  role,
+}: {
+  membershipId: string;
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
+}) {
+  const _db = ensureDb();
+  try {
+    await _db
+      .update(organizationMember)
+      .set({ role })
+      .where(eq(organizationMember.id, membershipId as any));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to update role');
+  }
+}
+
+export async function removeOrgMember({
+  membershipId,
+}: {
+  membershipId: string;
+}) {
+  const _db = ensureDb();
+  try {
+    await _db
+      .delete(organizationMember)
+      .where(eq(organizationMember.id, membershipId as any));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to remove member');
+  }
+}
+
+export async function deleteOrganization({ orgId }: { orgId: string }) {
+  const _db = ensureDb();
+  try {
+    await _db.delete(organizationMember).where(eq(organizationMember.orgId, orgId));
+    await _db.delete(organization).where(eq(organization.id, orgId));
+  } catch (error) {
+    throw new ChatSDKError('bad_request:database', 'Failed to delete organization');
   }
 }
 
@@ -362,16 +796,14 @@ export async function upsertGlobalAIConfig({
       return { provider, chatModel, reasoningModel: reasoningModel ?? null };
     }
 
-    await db
-      .insert(globalAIConfig)
-      .values({
-        provider,
-        model: chatModel,
-        chatModel,
-        reasoningModel: reasoningModel ?? null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+    await db.insert(globalAIConfig).values({
+      provider,
+      model: chatModel,
+      chatModel,
+      reasoningModel: reasoningModel ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     return { provider, chatModel, reasoningModel: reasoningModel ?? null };
   } catch (error) {
     throw new ChatSDKError(
@@ -950,6 +1382,87 @@ export async function deleteWordPressConnectionByUserId(userId: string) {
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to delete WordPress connection',
+    );
+  }
+}
+
+// New helpers for multi-site management
+export async function listWordPressConnectionsByUserId(userId: string) {
+  try {
+    const rows = await db
+      .select({
+        userId: wordpressConnection.userId,
+        siteUrl: wordpressConnection.siteUrl,
+        writeMode: wordpressConnection.writeMode,
+        createdAt: wordpressConnection.createdAt,
+        updatedAt: wordpressConnection.updatedAt,
+        lastUsedAt: wordpressConnection.lastUsedAt,
+      })
+      .from(wordpressConnection)
+      .where(eq(wordpressConnection.userId, userId))
+      .orderBy(desc(wordpressConnection.updatedAt));
+    return rows as Array<{
+      userId: string;
+      siteUrl: string;
+      writeMode: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+      lastUsedAt: Date | null;
+    }>;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to list WordPress connections',
+    );
+  }
+}
+
+export async function getWordPressConnectionByUserAndSite({
+  userId,
+  siteUrl,
+}: {
+  userId: string;
+  siteUrl: string;
+}) {
+  try {
+    const rows = await db
+      .select()
+      .from(wordpressConnection)
+      .where(
+        and(
+          eq(wordpressConnection.userId, userId),
+          eq(wordpressConnection.siteUrl, siteUrl),
+        ),
+      )
+      .limit(1);
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      userId: row.userId,
+      siteUrl: row.siteUrl,
+      jwt: decryptSecret(row.jwtEncrypted),
+      writeMode: row.writeMode,
+      updatedAt: row.updatedAt,
+    };
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to load WordPress connection by site',
+    );
+  }
+}
+
+export async function countWordPressConnectionsByUserId(userId: string) {
+  try {
+    const rows = await db
+      .select({ id: wordpressConnection.id })
+      .from(wordpressConnection)
+      .where(eq(wordpressConnection.userId, userId));
+    return rows.length;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to count WordPress connections',
     );
   }
 }

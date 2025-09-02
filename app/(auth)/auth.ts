@@ -7,6 +7,9 @@ import { createGuestUser, getUser } from '@/lib/db/queries';
 import { authConfig } from './auth.config';
 import { DUMMY_PASSWORD } from '@/lib/constants';
 import type { DefaultJWT } from 'next-auth/jwt';
+import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import { getAuthDb } from '@/lib/db/adapter';
+import { account, user as userTable } from '@/lib/db/schema';
 
 export type UserType = 'guest' | 'regular';
 
@@ -42,6 +45,11 @@ export const {
   signOut,
 } = NextAuth({
   ...authConfig,
+  session: { strategy: 'jwt' },
+  adapter: DrizzleAdapter(getAuthDb(), {
+    usersTable: userTable as any,
+    accountsTable: account as any,
+  }) as any,
   providers: [
     Credentials({
       credentials: {},

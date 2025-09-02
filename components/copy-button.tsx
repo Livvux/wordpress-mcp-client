@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,10 +6,20 @@ import { Button } from '@/components/ui/button';
 type CopyButtonProps = {
   text: string;
   children?: React.ReactNode;
-  variant?: 'default' | 'outline' | 'ghost' | 'link' | 'secondary' | 'destructive';
+  variant?:
+    | 'default'
+    | 'outline'
+    | 'ghost'
+    | 'link'
+    | 'secondary'
+    | 'destructive';
 };
 
-export function CopyButton({ text, children = 'Copy', variant = 'default' }: CopyButtonProps) {
+export function CopyButton({
+  text,
+  children = 'Copy',
+  variant = 'default',
+}: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleClick() {
@@ -29,4 +39,3 @@ export function CopyButton({ text, children = 'Copy', variant = 'default' }: Cop
     </Button>
   );
 }
-

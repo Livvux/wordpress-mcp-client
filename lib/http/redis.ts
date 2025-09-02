@@ -22,4 +22,3 @@ export async function ensureRedis(): Promise<RedisClientType | null> {
   if (connecting) await connecting.catch(() => {});
   return c;
 }
-

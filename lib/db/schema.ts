@@ -21,6 +21,34 @@ export const user = pgTable('User', {
 
 export type User = InferSelectModel<typeof user>;
 
+// OAuth accounts linked to users (NextAuth/Auth.js Drizzle adapter compatible)
+export const account = pgTable(
+  'Account',
+  {
+    userId: uuid('userId')
+      .notNull()
+      .references(() => user.id),
+    type: varchar('type', { length: 32 }).notNull(),
+    provider: varchar('provider', { length: 64 }).notNull(),
+    providerAccountId: varchar('providerAccountId', { length: 128 }).notNull(),
+    refresh_token: text('refresh_token'),
+    access_token: text('access_token'),
+    expires_at: integer('expires_at'),
+    token_type: varchar('token_type', { length: 32 }),
+    scope: text('scope'),
+    id_token: text('id_token'),
+    session_state: text('session_state'),
+  },
+  (table) => ({
+    // Auth.js default composite primary key for (provider, providerAccountId)
+    pk: primaryKey({
+      columns: [table.provider, table.providerAccountId],
+    }),
+  }),
+);
+
+export type Account = InferSelectModel<typeof account>;
+
 export const chat = pgTable('Chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   createdAt: timestamp('createdAt').notNull(),
@@ -165,6 +193,45 @@ export const vote = pgTable(
 );
 
 export type Vote = InferSelectModel<typeof vote>;
+
+// Ephemeral device-code pairing between plugin and app
+export const deviceLink = pgTable(
+  'DeviceLink',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    // Short code the user types into the plugin admin page
+    userCode: varchar('userCode', { length: 16 }).notNull(),
+    // Opaque device code the browser polls with
+    deviceCode: varchar('deviceCode', { length: 64 }).notNull(),
+    status: varchar('status', {
+      enum: ['pending', 'approved', 'consumed', 'expired', 'cancelled'],
+    })
+      .notNull()
+      .default('pending'),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    expiresAt: timestamp('expiresAt').notNull(),
+    approvedAt: timestamp('approvedAt'),
+    consumedAt: timestamp('consumedAt'),
+
+    // Data supplied by plugin on approval
+    siteUrl: text('siteUrl'),
+    jwtEncrypted: text('jwtEncrypted'),
+    writeMode: boolean('writeMode').notNull().default(false),
+    pluginVersion: varchar('pluginVersion', { length: 64 }),
+  },
+  (table) => {
+    return {
+      userCodeUnique: uniqueIndex('DeviceLink_user_code_unique').on(
+        table.userCode,
+      ),
+      deviceCodeUnique: uniqueIndex('DeviceLink_device_code_unique').on(
+        table.deviceCode,
+      ),
+    };
+  },
+);
+
+export type DeviceLink = InferSelectModel<typeof deviceLink>;
 
 export const document = pgTable(
   'Document',

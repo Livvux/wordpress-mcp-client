@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { validateWordPressConnection } from '@/lib/mcp/client';
 import { toast } from '@/components/toast';
+import { DeviceCodePairing } from '@/components/device-code-pairing';
 
 interface WordPressConnectionProps {
   onConnectionChange?: (connected: boolean, siteUrl?: string) => void;
@@ -42,8 +43,9 @@ export function WordPressConnection({
   const [pluginVersion, setPluginVersion] = useState<string | null>(null);
   const [toolsCount, setToolsCount] = useState<number | null>(null);
   const [compatIssue, setCompatIssue] = useState<string | null>(null);
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
 
-  // Load saved connection state on mount
+  // Load saved connection state on mount (avoid re-running on parent re-renders)
   useEffect(() => {
     const checkConnection = async () => {
       const response = await fetch('/api/mcp/connection/status', {
@@ -55,12 +57,13 @@ export function WordPressConnection({
         setIsConnected(data.connected);
         setSiteUrl(data.siteUrl || '');
         setWriteMode(data.writeMode || false);
+        // Notify parent once after initial status load
         onConnectionChange?.(data.connected, data.siteUrl);
       }
     };
 
     checkConnection();
-  }, [onConnectionChange]);
+  }, []);
 
   const handleConnect = async () => {
     if (!siteUrl || !jwtToken) {
@@ -121,6 +124,14 @@ export function WordPressConnection({
       });
 
       if (!response.ok) {
+        if (response.status === 402) {
+          const data = await response.json().catch(() => ({}) as any);
+          const msg =
+            data?.message ||
+            'Free plan supports only 1 connected site. Upgrade to add more.';
+          setPlanLimitMessage(msg);
+          throw new Error(msg);
+        }
         throw new Error('Failed to save connection');
       }
 
@@ -284,64 +295,79 @@ export function WordPressConnection({
         </div>
 
         {mode === 'plugin' && !isConnected && (
-          <div className="p-3 rounded-md border bg-muted/40 text-sm">
-            <div className="font-medium mb-1">WP Cursor plugin</div>
+          <div className="p-3 rounded-md border bg-muted/40 text-sm space-y-2">
+            <div className="font-medium">WP Cursor plugin</div>
             <p className="text-muted-foreground">
-              Use our WordPress plugin for richer MCP tools and signed audit
-              logs. Install it on your site from the repo under
-              <span className="font-mono"> plugins/wp-cursor </span> and
-              activate it. Then issue a JWT token from the plugin admin page.
+              Install our WordPress plugin for richer MCP tools and signed audit
+              logs. Pair your site via the device code flow below — no manual
+              tokens required.
             </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open('/releases/wp-cursor-0.1.0.zip', '_blank')
+                }
+              >
+                Download ZIP
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('/admin/wp-plugin', '_blank')}
+              >
+                Quick Onboarding
+              </Button>
+            </div>
           </div>
         )}
 
         {!isConnected ? (
           <>
-            <div className="space-y-2">
-              <Label htmlFor="site-url">Site URL</Label>
-              <Input
-                id="site-url"
-                type="url"
-                placeholder="https://your-site.com"
-                value={siteUrl}
-                onChange={(e) => setSiteUrl(e.target.value)}
-                disabled={isConnecting}
-              />
-            </div>
+            {mode === 'basic' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="site-url">Site URL</Label>
+                  <Input
+                    id="site-url"
+                    type="url"
+                    placeholder="https://your-site.com"
+                    value={siteUrl}
+                    onChange={(e) => setSiteUrl(e.target.value)}
+                    disabled={isConnecting}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="jwt-token">
-                {mode === 'plugin' ? 'JWT Token (WP Cursor)' : 'JWT Token'}
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="jwt-token"
-                  type={showToken ? 'text' : 'password'}
-                  placeholder="Enter your JWT token"
-                  value={jwtToken}
-                  onChange={(e) => setJwtToken(e.target.value)}
-                  disabled={isConnecting}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowToken(!showToken)}
-                >
-                  {showToken ? 'Hide' : 'Show'}
-                </Button>
-              </div>
-              {mode === 'basic' ? (
-                <p className="text-xs text-muted-foreground">
-                  Generate a JWT token from WordPress Admin → Settings →
-                  WordPress MCP (Automattic plugin)
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Issue a JWT from WP Admin → Tools → WP Cursor → Issue Token
-                </p>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jwt-token">JWT Token</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="jwt-token"
+                      type={showToken ? 'text' : 'password'}
+                      placeholder="Enter your JWT token"
+                      value={jwtToken}
+                      onChange={(e) => setJwtToken(e.target.value)}
+                      disabled={isConnecting}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowToken(!showToken)}
+                    >
+                      {showToken ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Generate a JWT token from WordPress Admin → Settings →
+                    WordPress MCP (Automattic plugin)
+                  </p>
+                </div>
+              </>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -369,20 +395,55 @@ export function WordPressConnection({
               </Alert>
             )}
 
-            <Button
-              onClick={handleConnect}
-              disabled={isConnecting || !siteUrl || !jwtToken}
-              className="w-full"
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                'Connect to WordPress'
-              )}
-            </Button>
+            {planLimitMessage && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {planLimitMessage}{' '}
+                  <a
+                    href="/upgrade"
+                    className="underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = '/upgrade';
+                    }}
+                  >
+                    Upgrade
+                  </a>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Device-code pairing (only visible in Plugin mode) */}
+            {mode === 'plugin' && (
+              <DeviceCodePairing
+                onPaired={(pairedSite) => {
+                  if (pairedSite) setSiteUrl(pairedSite);
+                  setIsConnected(true);
+                  setConnectionError(null);
+                  toast({
+                    type: 'success',
+                    description: 'Paired via device code',
+                  });
+                }}
+              />
+            )}
+            {mode === 'basic' && (
+              <Button
+                onClick={handleConnect}
+                disabled={isConnecting || !siteUrl || !jwtToken}
+                className="w-full"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect to WordPress'
+                )}
+              </Button>
+            )}
           </>
         ) : (
           <>

@@ -45,7 +45,8 @@ function PureMessages({
   return (
     <div
       ref={messagesContainerRef}
-      className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 relative"
+      data-testid="messages-scroll"
+      className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-auto [scrollbar-gutter:stable] pt-4 relative bg-background"
     >
       {messages.length === 0 && <Greeting />}
 

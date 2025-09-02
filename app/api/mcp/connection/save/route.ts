@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAllowedOrigin } from '@/lib/security';
 import { auth } from '@/app/(auth)/auth-simple';
-import { upsertWordPressConnection } from '@/lib/db/queries';
+import {
+  countWordPressConnectionsByUserId,
+  getWordPressConnectionByUserAndSite,
+  hasActiveSubscription,
+  upsertWordPressConnection,
+} from '@/lib/db/queries';
 
 const requestSchema = z.object({
   siteUrl: z.string().url(),
@@ -21,6 +26,28 @@ export async function POST(request: Request) {
     }
     const body = await request.json();
     const { siteUrl, jwtToken, writeMode } = requestSchema.parse(body);
+
+    // Enforce plan limit when adding a new site
+    const existing = await getWordPressConnectionByUserAndSite({
+      userId: session.user.id,
+      siteUrl,
+    });
+    if (!existing) {
+      const count = await countWordPressConnectionsByUserId(session.user.id);
+      const roles = session.session.roles || [];
+      const isAdmin = roles.includes('admin') || roles.includes('owner');
+      const hasSub = await hasActiveSubscription(session.user.id);
+      if (!isAdmin && !hasSub && count >= 1) {
+        return NextResponse.json(
+          {
+            error: 'plan_limit',
+            message:
+              'Free plan supports only 1 connected site. Upgrade to add more.',
+          },
+          { status: 402 },
+        );
+      }
+    }
     await upsertWordPressConnection({
       userId: session.user.id,
       siteUrl,

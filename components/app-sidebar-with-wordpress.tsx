@@ -1,6 +1,6 @@
 'use client';
 
-import type { User } from '@/lib/session';
+import type { Session, User } from '@/lib/session';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from 'lucide-react';
@@ -17,8 +17,18 @@ import {
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { UpgradeCTA } from '@/components/upgrade-cta';
+import { ModelSelector } from '@/components/model-selector';
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  session,
+  selectedModelId,
+}: {
+  user: User | undefined;
+  session?: Session;
+  selectedModelId?: string;
+}) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
 
@@ -58,6 +68,16 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </div>
         </SidebarMenu>
       </SidebarHeader>
+      {/* Model selector (mobile only) */}
+      {session && selectedModelId && (
+        <div className="px-2 pt-2 md:hidden">
+          <ModelSelector
+            session={session}
+            selectedModelId={selectedModelId}
+            className="w-full justify-between"
+          />
+        </div>
+      )}
       <SidebarContent>
         <SidebarHistory user={user} />
       </SidebarContent>

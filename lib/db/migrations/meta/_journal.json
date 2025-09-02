@@ -71,6 +71,20 @@
       "when": 1756805578480,
       "tag": "0009_ordinary_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1756811630104,
+      "tag": "0010_tired_viper",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1756822038151,
+      "tag": "0011_tan_sinister_six",
+      "breakpoints": true
     }
   ]
 }

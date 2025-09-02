@@ -612,6 +612,7 @@ class WPCursor_Plugin {
         if (!current_user_can('manage_options')) return;
         $issued = null;
         $redirected = false;
+        $pair_result = null;
         // Auto-connect flow via GET: /wp-admin/admin.php?page=wpcursor-admin&connect=1&app=...&write=1
         if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['connect']) && isset($_GET['app'])) {
             $app_url = esc_url_raw(trim((string)$_GET['app']));
@@ -638,6 +639,46 @@ class WPCursor_Plugin {
                 $redirected = true;
                 wp_safe_redirect($location);
                 exit;
+            }
+        }
+
+        // Device-code pairing: POST to app with code + issued token
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pair_device']) && check_admin_referer('wpcursor_pair_device')) {
+            $app_url = esc_url_raw(trim((string)($_POST['app_url'] ?? '')));
+            $user_code = strtoupper(sanitize_text_field((string)($_POST['device_code'] ?? '')));
+            $write_mode = isset($_POST['write_mode']) && (string)$_POST['write_mode'] === '1';
+            $ttl = isset($_POST['ttl']) ? max(60, min(86400, (int)$_POST['ttl'])) : 3600;
+            if (!empty($app_url) && !empty($user_code)) {
+                $scopes = ['posts:read'];
+                $scopes[] = 'files:read';
+                if ($write_mode) { $scopes[] = 'posts:write'; }
+                $claims = [ 'scopes' => $scopes, 'site' => home_url() ];
+                $token = $this->jwt_issue($claims, $ttl);
+                $payload = [
+                    'user_code' => $user_code,
+                    'site' => home_url(),
+                    'token' => $token,
+                    'write' => $write_mode,
+                    'pluginVersion' => $this->plugin_version(),
+                ];
+                $res = wp_remote_post(rtrim($app_url, '/') . '/api/mcp/connection/device/activate', [
+                    'timeout' => 10,
+                    'headers' => [ 'Content-Type' => 'application/json' ],
+                    'body' => wp_json_encode($payload),
+                ]);
+                if (is_wp_error($res)) {
+                    $pair_result = [ 'ok' => false, 'message' => $res->get_error_message() ];
+                } else {
+                    $code = (int)wp_remote_retrieve_response_code($res);
+                    if ($code >= 200 && $code < 300) {
+                        $pair_result = [ 'ok' => true, 'message' => 'Paired successfully. Complete the linking in the app.' ];
+                    } else {
+                        $body = wp_remote_retrieve_body($res);
+                        $j = json_decode($body, true);
+                        $pair_result = [ 'ok' => false, 'message' => isset($j['error']) ? (string)$j['error'] : ('HTTP ' . $code) ];
+                    }
+                }
+                $this->audit_append('device.pair.attempt', [ 'ok' => (bool)$pair_result['ok'], 'write' => $write_mode ]);
             }
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && check_admin_referer('wpcursor_issue_token')) {
@@ -727,6 +768,33 @@ class WPCursor_Plugin {
                     <label>TTL (seconds): <input type="number" name="ttl" min="60" max="86400" value="3600"></label>
                 </p>
                 <p><button type="submit" class="button">Connect to App</button></p>
+            </form>
+
+            <hr style="margin:1.5em 0;" />
+
+            <h2>Pair with App via Device Code</h2>
+            <p>Generate a code in the app, then enter it here to link this site without pasting tokens.</p>
+            <?php if (is_array($pair_result)) : ?>
+                <div class="notice <?php echo $pair_result['ok'] ? 'notice-success' : 'notice-error'; ?>"><p><?php echo esc_html((string)$pair_result['message']); ?></p></div>
+            <?php endif; ?>
+            <form method="post">
+                <?php wp_nonce_field('wpcursor_pair_device'); ?>
+                <input type="hidden" name="pair_device" value="1" />
+                <p>
+                    <label>App URL:
+                        <input type="url" name="app_url" style="width: 420px;" placeholder="https://app.example.com or http://localhost:3000" value="<?php echo esc_attr(defined('WPCURSOR_APP_URL') && WPCURSOR_APP_URL ? (string)WPCURSOR_APP_URL : (isset($_GET['app']) ? (string)$_GET['app'] : (is_ssl() ? 'https://localhost:3000' : 'http://localhost:3000'))); ?>" required />
+                    </label>
+                </p>
+                <p>
+                    <label>Device Code:
+                        <input type="text" name="device_code" style="width: 220px; text-transform:uppercase;" placeholder="ABCD1234" required />
+                    </label>
+                    <label style="margin-left:1em;"><input type="checkbox" name="write_mode" value="1"> Enable write mode</label>
+                </p>
+                <p>
+                    <label>TTL (seconds): <input type="number" name="ttl" min="60" max="86400" value="3600"></label>
+                </p>
+                <p><button type="submit" class="button">Pair Device</button></p>
             </form>
 
             <p style="margin-top:0.5em">

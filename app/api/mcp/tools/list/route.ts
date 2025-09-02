@@ -42,10 +42,12 @@ export async function POST(request: Request) {
         if (!refreshRes.ok) {
           throw e;
         }
-        const refreshData = await refreshRes.json().catch(() => ({} as any));
-        const newJwt = typeof refreshData?.accessToken === 'string' && refreshData.accessToken.length > 0
-          ? refreshData.accessToken
-          : (await cookies()).get('wp_jwt')?.value || '';
+        const refreshData = await refreshRes.json().catch(() => ({}) as any);
+        const newJwt =
+          typeof refreshData?.accessToken === 'string' &&
+          refreshData.accessToken.length > 0
+            ? refreshData.accessToken
+            : (await cookies()).get('wp_jwt')?.value || '';
         const wpBase2 = (await cookies()).get('wp_base')?.value || wpBase;
         client = new MCPClient(wpBase2, newJwt);
         await client.initialize();
@@ -59,7 +61,9 @@ export async function POST(request: Request) {
 
     console.log('Tools retrieved:', { count: tools.tools?.length || 0 });
 
-    return NextResponse.json(tools);
+    const res = NextResponse.json(tools);
+    res.headers.set('Vary', 'Origin');
+    return res;
   } catch (error) {
     console.error('Error listing MCP tools:', error);
 
@@ -68,6 +72,8 @@ export async function POST(request: Request) {
       errorMessage = error.message;
     }
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    const res = NextResponse.json({ error: errorMessage }, { status: 500 });
+    res.headers.set('Vary', 'Origin');
+    return res;
   }
 }

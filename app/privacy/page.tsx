@@ -9,7 +9,9 @@ export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 prose dark:prose-invert">
       <h1>Privacy Policy</h1>
-      <p className="text-sm text-muted-foreground">Last updated: September 2, 2025</p>
+      <p className="text-sm text-muted-foreground">
+        Last updated: September 2, 2025
+      </p>
 
       <p>
         This Privacy Policy explains how wpAgent ("we", "us", or "our")
@@ -58,8 +60,8 @@ export default function PrivacyPage() {
       <h2>6. Security</h2>
       <p>
         We implement reasonable technical and organizational measures to protect
-        your information. However, no system is completely secure, and we
-        cannot guarantee absolute security.
+        your information. However, no system is completely secure, and we cannot
+        guarantee absolute security.
       </p>
 
       <h2>7. Your Rights</h2>
@@ -78,17 +80,16 @@ export default function PrivacyPage() {
 
       <h2>9. Children’s Privacy</h2>
       <p>
-        The Service is not directed to children under 13 (or the age required
-        by local law). We do not knowingly collect personal information from
+        The Service is not directed to children under 13 (or the age required by
+        local law). We do not knowingly collect personal information from
         children.
       </p>
 
       <h2>10. Changes to This Policy</h2>
       <p>
-        We may update this Privacy Policy from time to time. If we make
-        material changes, we will provide notice as appropriate. Your continued
-        use of the Service after changes become effective constitutes
-        acceptance.
+        We may update this Privacy Policy from time to time. If we make material
+        changes, we will provide notice as appropriate. Your continued use of
+        the Service after changes become effective constitutes acceptance.
       </p>
 
       <h2>11. Contact</h2>

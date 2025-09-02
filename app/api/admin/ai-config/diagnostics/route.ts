@@ -7,7 +7,7 @@ import { getGlobalAIConfig } from '@/lib/db/queries';
 
 export const dynamic = 'force-dynamic';
 
-type ProviderId = typeof AI_PROVIDERS[number]['id'];
+type ProviderId = (typeof AI_PROVIDERS)[number]['id'];
 
 const PROVIDER_ENV_MAP: Record<ProviderId, string> = {
   openai: 'OPENAI_API_KEY',
@@ -18,7 +18,10 @@ const PROVIDER_ENV_MAP: Record<ProviderId, string> = {
   xai: 'XAI_API_KEY',
 };
 
-function resolveApiKey(providerId: ProviderId): { key: string | null; source: string | null } {
+function resolveApiKey(providerId: ProviderId): {
+  key: string | null;
+  source: string | null;
+} {
   const specificName = PROVIDER_ENV_MAP[providerId];
   const specific = specificName ? process.env[specificName] : undefined;
   if (specific) return { key: specific, source: `env:${specificName}` };
@@ -33,8 +36,12 @@ function resolveApiKey(providerId: ProviderId): { key: string | null; source: st
 export async function GET() {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    await requireOwnerOrAdmin({ userId: session.user.id, email: session.user.email ?? null });
+    if (!session?.user)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requireOwnerOrAdmin({
+      userId: session.user.id,
+      email: session.user.email ?? null,
+    });
 
     const adminConfig = await getGlobalAIConfig().catch(() => null);
 
@@ -42,7 +49,9 @@ export async function GET() {
       AI_PROVIDERS.map(async (p) => {
         const { key, source } = resolveApiKey(p.id as ProviderId);
         const apiKeyPresent = !!key;
-        const apiKeyLooksValid = apiKeyPresent ? validateApiKey(p.id, key!) : false;
+        const apiKeyLooksValid = apiKeyPresent
+          ? validateApiKey(p.id, key!)
+          : false;
         let reachable: boolean | null = null;
         let error: string | null = null;
         let modelsCount: number | null = null;
@@ -86,4 +95,3 @@ export async function GET() {
     );
   }
 }
-
